@@ -1,11 +1,11 @@
 # Arya — WhatsApp Operasyon Ajanı
 
-Arya; WhatsApp konuşmalarını güvenli biçimde kaydetmek, seçilen mesajlardan özet ve yanıt taslağı üretmek ve her taslağı ekip onayına sunmak için hazırlanıyor.
+Arya; WhatsApp konuşmalarını kaydetmek, seçilen mesajlardan özet ve yanıt taslağı üretmek ve her taslağı ekip onayına sunmak için hazırlanıyor.
 
 ## Mevcut durum
 
-- Ana paneldeki genel bakış, rapor ve analiz kartları örnek veridir.
-- Canlı Gelenler ve Yanıt Onayı ayrı, yönetici oturumu gerektiren bölümlerdir.
+- Genel bakış, konuşmalar, analizler ve raporlar Neon'daki gerçek kayıtları gösterir. Yeni kurulumda kayıt bulunana kadar sıfır/boş durum görünür. Sayfalar yönetici oturumu gerektirir.
+- Konuşmalar ekranı son 150 mesajı gösterir; rapor sayıları saklanan tüm mesajlardan hesaplanır. Sayfalar açıkken 30 saniyede bir yenilenir.
 - Neon Postgres bağlantısı geldiğinde tablolar API tarafından otomatik kurulur.
 - Meta webhook imzası doğrulanır; yeni mesajlar tekil Meta mesaj kimliğiyle saklanır. Yinelenen webhook mesajları yeniden eklenmez.
 - Mesaj ve taslak verileri varsayılan olarak 90 gün sonra temizlenir; bu temizlik gelen webhook veya yönetici listeleme isteğinde çalışır. Denetim kayıtları 365 gün tutulur.
@@ -20,8 +20,8 @@ Arya; WhatsApp konuşmalarını güvenli biçimde kaydetmek, seçilen mesajlarda
 Vercel projesinin Settings → Environment Variables bölümüne aşağıdaki değerleri Production ortamında ekleyin. Gerçek değerleri GitHub'a, HTML dosyalarına veya sohbete yazmayın.
 
 - DATABASE_URL: Vercel Marketplace üzerinden bu projeye bağlı Neon Postgres bağlantı değeri.
-- ARYA_ADMIN_PASSWORD: En az 20 karakterlik, yalnızca Arya için kullanılan yönetici parolası.
-- ARYA_SESSION_SECRET: En az 32 karakterlik, rastgele imza anahtarı.
+- ARYA_ADMIN_PASSWORD: En az 3 karakterlik yönetici parolası. İnternete açık yönetici paneli için uzun ve rastgele bir parola kullanılması kuvvetle önerilir.
+- ARYA_SESSION_SECRET: En az 32 karakterlik rastgele imza anahtarı. Üç karaktere indirilmemelidir; oturum çerezlerinin güvenliği buna bağlıdır.
 - ARYA_RETENTION_DAYS: İsteğe bağlı; 30–365 arası gün, varsayılan 90.
 - OPENAI_API_KEY: OpenAI API anahtarı.
 - OPENAI_MODEL: Bu projede kullanılacak model adı.
@@ -29,7 +29,7 @@ Vercel projesinin Settings → Environment Variables bölümüne aşağıdaki de
 - META_WEBHOOK_VERIFY_TOKEN: Senin belirleyeceğin uzun, rastgele webhook doğrulama değeri.
 - META_ACCESS_TOKEN, META_PHONE_NUMBER_ID, META_GRAPH_API_VERSION: Yalnızca ileride ayrı outbound gönderim aşaması için; bu sürüm bunları kullanmaz.
 
-Önce yalnızca DATABASE_URL, ARYA_ADMIN_PASSWORD ve ARYA_SESSION_SECRET eklenip yeniden deploy edilmelidir. Ardından Arya panelinde Canlı Gelenler bölümünde yönetici oturumu açılabilir. API'ler eklenmeden önce sayfa örnek verileriyle çalışmaya devam eder.
+Önce yalnızca DATABASE_URL, ARYA_ADMIN_PASSWORD ve ARYA_SESSION_SECRET eklenip yeniden deploy edilmelidir. Ardından Arya panelinde yönetici oturumu açılabilir. Meta bağlanmadan önce panelde hiç gerçek mesaj bulunmaz; örnek veri gösterilmez.
 
 ## Akış
 
@@ -43,7 +43,7 @@ Vercel projesinin Settings → Environment Variables bölümüne aşağıdaki de
 ## Güvenlik sınırları
 
 - Yönetici oturumu HTTP-only, production ortamında Secure ve SameSite=Strict imzalı çerez kullanır; dört saat sonra sona erer.
-- Yönetici girişi aynı IP özeti için 15 dakikalık pencerede sekiz hatadan sonra geçici olarak kilitlenir. IP adresi düz metin saklanmaz.
+- Yönetici girişi aynı IP özeti veya tüm girişlerde 15 dakikalık pencerede sekiz hatadan sonra geçici olarak kilitlenir. Kısa parola seçimi bu sınırlamaya rağmen tahmin riski yaratır; uzun parola kullanın. IP adresi düz metin saklanmaz.
 - Yönetici API'leri oturum ve aynı-kaynak kontrolü ister.
 - OpenAI veya Meta anahtarları tarayıcı koduna gönderilmez.
 - Webhook, veritabanı veya yönetici oturumu hazır değilse doğrulama ve mesaj alımı açılmaz.
@@ -55,6 +55,7 @@ Vercel projesinin Settings → Environment Variables bölümüne aşağıdaki de
 - GET /api/admin/session: Oturum ve gerekli kurulum bayraklarını döndürür.
 - POST /api/admin/login ve POST /api/admin/logout: Yönetici oturumu.
 - GET /api/admin/messages: Oturumla son 150 mesaj.
+- GET /api/admin/summary: Gerçek mesaj ve onay sayıları, son yedi gün dağılımı ve son 150 mesaj.
 - GET /api/admin/approvals?status=pending|approved|rejected: Onay kuyruğu.
 - POST /api/admin/approval: Taslağı approve veya reject durumuna geçirir; göndermez.
 - POST /api/agent-draft: Mesaj kimliklerini OpenAI'ye gönderip taslağı kaydeder; oturum gerekir.
@@ -62,4 +63,4 @@ Vercel projesinin Settings → Environment Variables bölümüne aşağıdaki de
 
 ## Geliştirme
 
-Ön yüz statik HTML/JavaScript'tir. API uçları api/ altında Vercel Functions olarak çalışır. admin.js gerçek mesaj ve onay ekranlarını yönetir; ana ekrandaki mevcut örnek panellerden bağımsızdır.
+Ön yüz statik HTML/JavaScript'tir. API uçları api/ altında Vercel Functions olarak çalışır. admin.js tüm yönetici ekranlarını gerçek veriden oluşturur.
