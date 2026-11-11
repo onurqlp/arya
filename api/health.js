@@ -35,7 +35,7 @@ export default async function handler(_req, res) {
     webhookSubscriptionReady: webhookReady,
     protectedDraftEndpoint: draftReady,
     messageStorage: databaseReady && adminReady,
-    outboundSending: false,
-    note: "Inbound messages are stored after webhook setup. Analysis requires an explicit admin action. Approving a draft does not send it."
+    outboundSending: databaseReady && adminReady && configured.metaSend,
+    note: "Inbound messages are stored after webhook setup. Analysis and individual message sending require separate admin actions. Approval alone does not send."
   });
 }
