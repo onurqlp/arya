@@ -19,13 +19,14 @@ export default function handler(_req, res) {
     service: "arya",
     status: "integration_scaffold",
     configured,
-    webhookVerification: Boolean(
+    webhookSecretsConfigured: Boolean(
       process.env.META_APP_SECRET && process.env.META_WEBHOOK_VERIFY_TOKEN,
     ),
+    webhookSubscriptionReady: false,
     protectedDraftEndpoint: Boolean(
       process.env.OPENAI_API_KEY &&
         process.env.OPENAI_MODEL &&
-        process.env.ARYA_INTERNAL_TOKEN,
+        process.env.ARYA_INTERNAL_TOKEN?.length >= 32,
     ),
     messageProcessing: false,
     note: "No WhatsApp message is processed or sent by this scaffold.",
