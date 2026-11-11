@@ -6,8 +6,8 @@ Arya; AYDA WhatsApp çalışma alanındaki konuşmaları anlamlandırmak, özetl
 
 - Panel yayında; grup isimleri, mesajlar, sayılar ve raporlar **örnek veridir**.
 - `api/health` yalnızca sunucu ortam değişkenlerinin var/yok durumunu bildirir; hiçbir gizli değeri döndürmez.
-- `api/agent-draft` sunucu üzerinden OpenAI Responses API'ye sınırlı konuşma metni gönderir ve iç kullanım için taslak döndürür. İstek `ARYA_INTERNAL_TOKEN` gerektirir. Hiçbir WhatsApp mesajı göndermez.
-- `api/meta-webhook` Meta'nın GET doğrulama isteğini ve POST imza denetimini hazırlar.
+- `api/agent-draft` sunucu üzerinden OpenAI Responses API'ye sınırlı konuşma metni gönderir ve iç kullanım için taslak döndürür. İstek en az 32 karakterlik `ARYA_INTERNAL_TOKEN` gerektirir. Hiçbir WhatsApp mesajı göndermez.
+- `api/meta-webhook` Meta'nın GET doğrulama ve POST imza denetimi için iskelet içerir. GET doğrulaması, mesaj işleme tamamlanana kadar 503 döndürür; böylece Meta aboneliği yanlışlıkla açılmaz.
 - Webhook POST isteği imza doğrulansa bile şimdilik **503 döndürür**. Böylece olay kalıcı olarak kaydedilmeden Meta'ya “işledim” denmez; gerçek mesaj işleme henüz etkin değildir.
 - Mesaj saklama, yönetici oturumu, ekip onayı ve WhatsApp'a gönderim **henüz uygulanmadı**.
 - Var olan WhatsApp gruplarına erişim doğrulanmadan bu gruplar bağlanmış gibi gösterilmeyecek. Meta'da WhatsApp Cloud API ve gruplar için mevcut yetki/kapsam ayrıca teyit edilmelidir.
@@ -24,7 +24,7 @@ Gövde biçimi: `{"messages":[{"role":"user","content":"..."}]}`. 1–30 mesaj a
 
 ### `GET /api/meta-webhook`
 
-Meta webhook doğrulama isteğinde `hub.mode=subscribe`, `hub.verify_token` ve `hub.challenge` parametrelerini kontrol eder. Doğru doğrulama token'ı varsa challenge'ı geri verir.
+Şimdilik 503 döndürür. Kalıcı kayıt, yinelenen olay denetimi ve insan onayı tamamlandıktan sonra `hub.mode=subscribe`, `hub.verify_token` ve `hub.challenge` parametreleriyle Meta doğrulaması etkinleştirilecektir.
 
 ### `POST /api/meta-webhook`
 
@@ -32,7 +32,7 @@ Meta webhook doğrulama isteğinde `hub.mode=subscribe`, `hub.verify_token` ve `
 
 ## Gerekli sunucu ortam değişkenleri
 
-Değerleri yalnızca Vercel projesinin **Settings → Environment Variables** bölümüne ekleyin. `.env.example` dosyası adları listeler; gerçek değer içermez. `ARYA_INTERNAL_TOKEN` için uzun, rastgele ve yalnızca bu projede kullanılan bir değer üretin.
+Değerleri yalnızca Vercel projesinin **Settings → Environment Variables** bölümüne ekleyin. `.env.example` dosyası adları listeler; gerçek değer içermez. `ARYA_INTERNAL_TOKEN` için en az 32 karakterlik, rastgele ve yalnızca bu projede kullanılan bir değer üretin.
 
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL`
