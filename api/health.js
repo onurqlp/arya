@@ -4,7 +4,7 @@ import { ensureSchema } from "../lib/db.js";
 export default async function handler(_req, res) {
   const configured = {
     database: Boolean(process.env.DATABASE_URL),
-    adminPassword: Boolean(process.env.ARYA_ADMIN_PASSWORD && process.env.ARYA_ADMIN_PASSWORD.length >= 20),
+    adminPassword: Boolean(process.env.ARYA_ADMIN_PASSWORD && process.env.ARYA_ADMIN_PASSWORD.length >= 3),
     sessionSecret: Boolean(process.env.ARYA_SESSION_SECRET && process.env.ARYA_SESSION_SECRET.length >= 32),
     openAI: Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_MODEL),
     metaWebhook: Boolean(process.env.META_APP_SECRET && process.env.META_WEBHOOK_VERIFY_TOKEN),
