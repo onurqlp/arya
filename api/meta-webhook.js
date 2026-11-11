@@ -62,6 +62,13 @@ export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
 
   if (req.method === "GET") {
+    // A verification success would let Meta subscribe immediately. Keep that
+    // impossible until durable event processing and human review are built.
+    const messageProcessingEnabled = false;
+    if (!messageProcessingEnabled) {
+      res.status(503).json({ error: "message_processor_not_ready" });
+      return;
+    }
     const query = getQuery(req);
     const mode = query.get("hub.mode");
     const token = query.get("hub.verify_token");
