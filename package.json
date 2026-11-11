@@ -1,0 +1,7 @@
+{
+  "name": "arya-whatsapp-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Arya WhatsApp operations agent dashboard and serverless integration shell"
+}
