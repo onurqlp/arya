@@ -116,7 +116,9 @@ export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
 
   if (req.method === "GET") {
-    if (!readyForWebhook()) {
+    // Meta's initial webhook handshake only sends the verify token and challenge.
+    // The app secret is required later to validate signed POST events, not this GET.
+    if (!process.env.META_WEBHOOK_VERIFY_TOKEN || !process.env.DATABASE_URL || !authConfigured()) {
       res.status(503).json({ error: "webhook_setup_incomplete" });
       return;
     }
