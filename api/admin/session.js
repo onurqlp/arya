@@ -14,7 +14,7 @@ export default function handler(req, res) {
       databaseConfigured: Boolean(process.env.DATABASE_URL),
       openAIConfigured: Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_MODEL),
       webhookConfigured: Boolean(process.env.META_APP_SECRET && process.env.META_WEBHOOK_VERIFY_TOKEN),
-      outboundSending: false
+      outboundSending: Boolean(process.env.META_ACCESS_TOKEN && process.env.META_PHONE_NUMBER_ID && process.env.META_GRAPH_API_VERSION)
     }
   });
 }
