@@ -10,8 +10,8 @@ Arya; WhatsApp konuşmalarını kaydetmek, seçilen mesajlardan özet ve yanıt 
 - Meta webhook imzası doğrulanır; yeni mesajlar tekil Meta mesaj kimliğiyle saklanır. Yinelenen webhook mesajları yeniden eklenmez.
 - Mesaj ve taslak verileri varsayılan olarak 90 gün sonra temizlenir; bu temizlik gelen webhook veya yönetici listeleme isteğinde çalışır. Denetim kayıtları 365 gün tutulur.
 - OpenAI yalnızca yönetici Canlı Gelenler sayfasında mesaj seçip onay kutusunu işaretleyerek Analiz et düğmesine bastığında çağrılır. İstek OpenAI Responses API'ye store=false ile gönderilir.
-- Üretilen özet ve yanıt taslağı kalıcı onay kuyruğuna düşer. Onaylama WhatsApp'a göndermez.
-- WhatsApp'a gönderim kodu bu sürümde yoktur ve gönderim kapalıdır.
+- Üretilen özet ve yanıt taslağı kalıcı onay kuyruğuna düşer. Onaylama WhatsApp'a göndermez. Yönetici ayrıca Gönder'e basınca onaylı bireysel sohbet yanıtı Meta API ile iletilir.
+- Grup gönderimi açılmaz; mevcut gruplara resmi API erişimi ayrıca doğrulanmalıdır.
 - Otomatik mesaj analizi yoktur. Webhook yalnızca doğrulanmış gelen mesajları saklar.
 - Meta'nın bu hesapta hangi sohbetleri veya grupları sağlayabildiği ayrıca teyit edilmelidir; bu kod mevcut gruplara erişim garantisi vermez.
 
@@ -27,7 +27,7 @@ Vercel projesinin Settings → Environment Variables bölümüne aşağıdaki de
 - OPENAI_MODEL: Bu projede kullanılacak model adı.
 - META_APP_SECRET: Meta uygulama gizli değeri; yalnızca sunucu ortamında.
 - META_WEBHOOK_VERIFY_TOKEN: Senin belirleyeceğin uzun, rastgele webhook doğrulama değeri.
-- META_ACCESS_TOKEN, META_PHONE_NUMBER_ID, META_GRAPH_API_VERSION: Yalnızca ileride ayrı outbound gönderim aşaması için; bu sürüm bunları kullanmaz.
+- META_ACCESS_TOKEN, META_PHONE_NUMBER_ID, META_GRAPH_API_VERSION: Onaylı bireysel yanıtları iletmek için. Sürüm örneğin v23.0 biçiminde olmalıdır.
 
 Önce yalnızca DATABASE_URL, ARYA_ADMIN_PASSWORD ve ARYA_SESSION_SECRET eklenip yeniden deploy edilmelidir. Ardından Arya panelinde yönetici oturumu açılabilir. Meta bağlanmadan önce panelde hiç gerçek mesaj bulunmaz; örnek veri gösterilmez.
 
@@ -39,6 +39,7 @@ Vercel projesinin Settings → Environment Variables bölümüne aşağıdaki de
 4. Yönetici seçilen aynı konuşmadaki metinleri OpenAI'ye göndermeyi açıkça onaylar.
 5. Arya özet ve yanıt taslağı üretir; kayıt Yanıt Onayı kuyruğuna eklenir.
 6. Ekip onaylar veya reddeder. Bu işlem mesaj göndermez.
+7. Yönetici onaylı bireysel yanıt için ayrıca Gönder'e basarsa iletim denenir. Meta'nın mesajlaşma penceresi ve hesap izinleri geçerlidir. Belirsiz teslim durumunda otomatik tekrar yapılmaz.
 
 ## Güvenlik sınırları
 
@@ -56,8 +57,9 @@ Vercel projesinin Settings → Environment Variables bölümüne aşağıdaki de
 - POST /api/admin/login ve POST /api/admin/logout: Yönetici oturumu.
 - GET /api/admin/messages: Oturumla son 150 mesaj.
 - GET /api/admin/summary: Gerçek mesaj ve onay sayıları, son yedi gün dağılımı ve son 150 mesaj.
-- GET /api/admin/approvals?status=pending|approved|rejected: Onay kuyruğu.
+- GET /api/admin/approvals?status=pending|approved|sent|sending|rejected: Onay kuyruğu.
 - POST /api/admin/approval: Taslağı approve veya reject durumuna geçirir; göndermez.
+- POST /api/admin/send: Onaylı bireysel sohbet yanıtını ayrı yönetici eylemiyle gönderir.
 - POST /api/agent-draft: Mesaj kimliklerini OpenAI'ye gönderip taslağı kaydeder; oturum gerekir.
 - GET|POST /api/meta-webhook: Meta challenge doğrulaması ve imzalı olayların kalıcı kaydı.
 
