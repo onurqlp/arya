@@ -11,7 +11,7 @@ export default async function handler(req, res) {
   if (!requireAdmin(req, res)) return;
 
   const requestedStatus = new URL(req.url || "/", "http://localhost").searchParams.get("status") || "pending";
-  if (!["pending", "approved", "rejected"].includes(requestedStatus)) {
+  if (!["pending", "approved", "rejected", "sent", "sending"].includes(requestedStatus)) {
     res.status(400).json({ error: "invalid_status" });
     return;
   }
@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     const db = await ensureSchema();
     await purgeExpired(db);
     const rows = await db.query(
-      "SELECT id, source_message_ids, analysis_text, reply_text, status, created_at, reviewed_at " +
+      "SELECT id, source_message_ids, analysis_text, reply_text, status, created_at, reviewed_at, sent_at " +
       "FROM arya_approvals WHERE status = $1 ORDER BY created_at DESC LIMIT 100",
       [requestedStatus],
     );
