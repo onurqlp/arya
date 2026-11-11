@@ -51,7 +51,7 @@ export default async function handler(req, res) {
     ? authorization.slice(7)
     : "";
 
-  if (!internalToken || !safeEqual(suppliedToken, internalToken)) {
+  if (!internalToken || internalToken.length < 32 || !safeEqual(suppliedToken, internalToken)) {
     res.status(401).json({ error: "unauthorized" });
     return;
   }
@@ -93,7 +93,7 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       // Do not return or log provider response details; they may contain data.
-      res.status(502).json({ error: "openai_request_failed" });
+      res.status(502).json({ error: "openai_request_failed", providerStatus: response.status, requestId: response.headers.get("x-request-id") || null });
       return;
     }
 
