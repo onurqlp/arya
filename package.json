@@ -1,7 +1,10 @@
 {
   "name": "arya-whatsapp-agent",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Arya WhatsApp operations agent dashboard and serverless integration shell"
+  "description": "Arya WhatsApp operations dashboard with secure admin review workflow",
+  "dependencies": {
+    "@neondatabase/serverless": "^1.2.0"
+  }
 }

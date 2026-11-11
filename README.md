@@ -1,59 +1,65 @@
 # Arya — WhatsApp Operasyon Ajanı
 
-Arya; AYDA WhatsApp çalışma alanındaki konuşmaları anlamlandırmak, özetlemek, karar ve takip maddelerini çıkarmak ve belirsiz/hassas konuları insan onayına taşımak için tasarlanıyor.
+Arya; WhatsApp konuşmalarını güvenli biçimde kaydetmek, seçilen mesajlardan özet ve yanıt taslağı üretmek ve her taslağı ekip onayına sunmak için hazırlanıyor.
 
-## Şu anki durum
+## Mevcut durum
 
-- Panel yayında; grup isimleri, mesajlar, sayılar ve raporlar **örnek veridir**.
-- `api/health` yalnızca sunucu ortam değişkenlerinin var/yok durumunu bildirir; hiçbir gizli değeri döndürmez.
-- `api/agent-draft` sunucu üzerinden OpenAI Responses API'ye sınırlı konuşma metni gönderir ve iç kullanım için taslak döndürür. İstek en az 32 karakterlik `ARYA_INTERNAL_TOKEN` gerektirir. Hiçbir WhatsApp mesajı göndermez.
-- `api/meta-webhook` Meta'nın GET doğrulama ve POST imza denetimi için iskelet içerir. GET doğrulaması, mesaj işleme tamamlanana kadar 503 döndürür; böylece Meta aboneliği yanlışlıkla açılmaz.
-- Webhook POST isteği imza doğrulansa bile şimdilik **503 döndürür**. Böylece olay kalıcı olarak kaydedilmeden Meta'ya “işledim” denmez; gerçek mesaj işleme henüz etkin değildir.
-- Mesaj saklama, yönetici oturumu, ekip onayı ve WhatsApp'a gönderim **henüz uygulanmadı**.
-- Var olan WhatsApp gruplarına erişim doğrulanmadan bu gruplar bağlanmış gibi gösterilmeyecek. Meta'da WhatsApp Cloud API ve gruplar için mevcut yetki/kapsam ayrıca teyit edilmelidir.
+- Ana paneldeki genel bakış, rapor ve analiz kartları örnek veridir.
+- Canlı Gelenler ve Yanıt Onayı ayrı, yönetici oturumu gerektiren bölümlerdir.
+- Neon Postgres bağlantısı geldiğinde tablolar API tarafından otomatik kurulur.
+- Meta webhook imzası doğrulanır; yeni mesajlar tekil Meta mesaj kimliğiyle saklanır. Yinelenen webhook mesajları yeniden eklenmez.
+- Mesaj ve taslak verileri varsayılan olarak 90 gün sonra temizlenir; bu temizlik gelen webhook veya yönetici listeleme isteğinde çalışır. Denetim kayıtları 365 gün tutulur.
+- OpenAI yalnızca yönetici Canlı Gelenler sayfasında mesaj seçip onay kutusunu işaretleyerek Analiz et düğmesine bastığında çağrılır. İstek OpenAI Responses API'ye store=false ile gönderilir.
+- Üretilen özet ve yanıt taslağı kalıcı onay kuyruğuna düşer. Onaylama WhatsApp'a göndermez.
+- WhatsApp'a gönderim kodu bu sürümde yoktur ve gönderim kapalıdır.
+- Otomatik mesaj analizi yoktur. Webhook yalnızca doğrulanmış gelen mesajları saklar.
+- Meta'nın bu hesapta hangi sohbetleri veya grupları sağlayabildiği ayrıca teyit edilmelidir; bu kod mevcut gruplara erişim garantisi vermez.
 
-## API uç noktaları
+## Kurulum
 
-### `GET /api/health`
+Vercel projesinin Settings → Environment Variables bölümüne aşağıdaki değerleri Production ortamında ekleyin. Gerçek değerleri GitHub'a, HTML dosyalarına veya sohbete yazmayın.
 
-Kurulum durumunu güvenli biçimde gösterir. Anahtarların değerlerini veya kısmi içeriklerini döndürmez.
+- DATABASE_URL: Vercel Marketplace üzerinden bu projeye bağlı Neon Postgres bağlantı değeri.
+- ARYA_ADMIN_PASSWORD: En az 20 karakterlik, yalnızca Arya için kullanılan yönetici parolası.
+- ARYA_SESSION_SECRET: En az 32 karakterlik, rastgele imza anahtarı.
+- ARYA_RETENTION_DAYS: İsteğe bağlı; 30–365 arası gün, varsayılan 90.
+- OPENAI_API_KEY: OpenAI API anahtarı.
+- OPENAI_MODEL: Bu projede kullanılacak model adı.
+- META_APP_SECRET: Meta uygulama gizli değeri; yalnızca sunucu ortamında.
+- META_WEBHOOK_VERIFY_TOKEN: Senin belirleyeceğin uzun, rastgele webhook doğrulama değeri.
+- META_ACCESS_TOKEN, META_PHONE_NUMBER_ID, META_GRAPH_API_VERSION: Yalnızca ileride ayrı outbound gönderim aşaması için; bu sürüm bunları kullanmaz.
 
-### `POST /api/agent-draft`
+Önce yalnızca DATABASE_URL, ARYA_ADMIN_PASSWORD ve ARYA_SESSION_SECRET eklenip yeniden deploy edilmelidir. Ardından Arya panelinde Canlı Gelenler bölümünde yönetici oturumu açılabilir. API'ler eklenmeden önce sayfa örnek verileriyle çalışmaya devam eder.
 
-Gövde biçimi: `{"messages":[{"role":"user","content":"..."}]}`. 1–30 mesaj alır, her içeriği 2.000 karakterle sınırlar ve `Authorization: Bearer <ARYA_INTERNAL_TOKEN>` ister. OpenAI çağrısı yalnızca sunucu tarafında yapılır; istek `store:false` ile gönderilir. Dönüş `sent:false` içerir ve yalnızca analiz/taslak metnidir. Bu endpoint henüz panele bağlanmadı.
+## Akış
 
-### `GET /api/meta-webhook`
+1. Meta imzası doğrulanır.
+2. Mesaj metni ve gerekli mesaj kimlikleri saklanır; ham webhook gövdesi saklanmaz.
+3. Yönetici mesajları Canlı Gelenler bölümünde görür.
+4. Yönetici seçilen aynı konuşmadaki metinleri OpenAI'ye göndermeyi açıkça onaylar.
+5. Arya özet ve yanıt taslağı üretir; kayıt Yanıt Onayı kuyruğuna eklenir.
+6. Ekip onaylar veya reddeder. Bu işlem mesaj göndermez.
 
-Şimdilik 503 döndürür. Kalıcı kayıt, yinelenen olay denetimi ve insan onayı tamamlandıktan sonra `hub.mode=subscribe`, `hub.verify_token` ve `hub.challenge` parametreleriyle Meta doğrulaması etkinleştirilecektir.
+## Güvenlik sınırları
 
-### `POST /api/meta-webhook`
+- Yönetici oturumu HTTP-only, production ortamında Secure ve SameSite=Strict imzalı çerez kullanır; dört saat sonra sona erer.
+- Yönetici girişi aynı IP özeti için 15 dakikalık pencerede sekiz hatadan sonra geçici olarak kilitlenir. IP adresi düz metin saklanmaz.
+- Yönetici API'leri oturum ve aynı-kaynak kontrolü ister.
+- OpenAI veya Meta anahtarları tarayıcı koduna gönderilmez.
+- Webhook, veritabanı veya yönetici oturumu hazır değilse doğrulama ve mesaj alımı açılmaz.
+- Mesajlar, analizler ve onaylar gerçek kullanıcı içeriği içerebilir. Gerçek mesaj akışını açmadan önce AYDA'nın erişim ve saklama tercihlerini doğrulayın.
 
-İstek gövdesini sınırlı boyutta okur ve `x-hub-signature-256` imzasını `META_APP_SECRET` ile denetler. İmzalı bir WhatsApp olayı henüz kuyruğa alınmadığı ve onay akışına bağlanmadığı için bu endpoint şimdilik olayı işlenmiş saymaz. Gerçek webhook aboneliğini etkinleştirmeden önce kalıcı kuyruk, yinelenen olay kontrolü ve hata/yeniden deneme davranışı tamamlanmalıdır.
+## Endpoint'ler
 
-## Gerekli sunucu ortam değişkenleri
-
-Değerleri yalnızca Vercel projesinin **Settings → Environment Variables** bölümüne ekleyin. `.env.example` dosyası adları listeler; gerçek değer içermez. `ARYA_INTERNAL_TOKEN` için en az 32 karakterlik, rastgele ve yalnızca bu projede kullanılan bir değer üretin.
-
-- `OPENAI_API_KEY`
-- `OPENAI_MODEL`
-- `ARYA_INTERNAL_TOKEN`
-- `META_ACCESS_TOKEN`
-- `META_PHONE_NUMBER_ID`
-- `META_APP_SECRET`
-- `META_WEBHOOK_VERIFY_TOKEN`
-- `META_GRAPH_API_VERSION`
-
-Anahtarları HTML, JavaScript, GitHub deposu veya tarayıcıya koymayın. Anahtar eklemek tek başına Meta mesajlarını işlemeye başlamaz. `/api/agent-draft` çağrıldığında gönderdiğiniz konuşma içeriği OpenAI'ye iletilir; gerçek grup mesajlarında kullanmadan önce veri erişimi ve saklama tercihlerini netleştirin.
-
-## Sıradaki geliştirme adımları
-
-1. Yönetici oturumu ekle; dahili taslak endpoint'ini sadece güvenli panel oturumuna aç.
-2. Kalıcı veri deposu ve webhook olay kuyruğu ekle; yinelenen olayları ayıkla.
-3. WhatsApp mesaj olaylarını güvenli biçimde ayrıştır ve saklama/silme süresini uygula.
-4. İnsan onay kuyruğunu ve işlem denetim kaydını panele bağla.
-5. Onaylanan yanıtların WhatsApp'a gönderimini, kapalı varsayılan gönderim ayarıyla ekle.
-6. Önce test varlığıyla doğrula. Mevcut grupları okuma olanağını Meta hesabında ayrıca doğrulamadan üretim gruplarına geçme.
+- GET /api/health: Gizli değerleri göstermeden kurulum durumunu verir.
+- GET /api/admin/session: Oturum ve gerekli kurulum bayraklarını döndürür.
+- POST /api/admin/login ve POST /api/admin/logout: Yönetici oturumu.
+- GET /api/admin/messages: Oturumla son 150 mesaj.
+- GET /api/admin/approvals?status=pending|approved|rejected: Onay kuyruğu.
+- POST /api/admin/approval: Taslağı approve veya reject durumuna geçirir; göndermez.
+- POST /api/agent-draft: Mesaj kimliklerini OpenAI'ye gönderip taslağı kaydeder; oturum gerekir.
+- GET|POST /api/meta-webhook: Meta challenge doğrulaması ve imzalı olayların kalıcı kaydı.
 
 ## Geliştirme
 
-Arayüz `index.html` içinde statik olarak çalışır. Sunucu uç noktaları Vercel Functions olarak `api/` altında yayınlanır.
+Ön yüz statik HTML/JavaScript'tir. API uçları api/ altında Vercel Functions olarak çalışır. admin.js gerçek mesaj ve onay ekranlarını yönetir; ana ekrandaki mevcut örnek panellerden bağımsızdır.

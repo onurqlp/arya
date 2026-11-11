@@ -1,19 +1,15 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { authConfigured, safeEqual } from "../lib/auth.js";
+import { ensureSchema, purgeExpired } from "../lib/db.js";
 
 export const config = {
   api: {
-    bodyParser: false,
-  },
+    bodyParser: false
+  }
 };
 
 const MAX_BODY_BYTES = 1024 * 1024;
-
-function safeEqual(left, right) {
-  if (typeof left !== "string" || typeof right !== "string") return false;
-  const a = Buffer.from(left);
-  const b = Buffer.from(right);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
+const MAX_MESSAGES_PER_EVENT = 100;
 
 function getQuery(req) {
   const url = new URL(req.url || "/", "http://localhost");
@@ -25,7 +21,6 @@ function readRawBody(req) {
     const chunks = [];
     let size = 0;
     let tooLarge = false;
-
     req.on("data", (chunk) => {
       size += chunk.length;
       if (size > MAX_BODY_BYTES) {
@@ -35,55 +30,114 @@ function readRawBody(req) {
       }
       if (!tooLarge) chunks.push(chunk);
     });
-
     req.on("end", () => {
       if (tooLarge) {
-        const error = new Error("Request body exceeds the 1 MB limit.");
+        const error = new Error("body_too_large");
         error.statusCode = 413;
         reject(error);
         return;
       }
       resolve(Buffer.concat(chunks));
     });
-
     req.on("error", reject);
   });
 }
 
 function signatureIsValid(rawBody, receivedSignature, appSecret) {
   if (!receivedSignature || !appSecret) return false;
-  const expected =
-    "sha256=" +
-    createHmac("sha256", appSecret).update(rawBody).digest("hex");
-  return safeEqual(expected, receivedSignature);
+  const expected = "sha256=" + createHmac("sha256", appSecret).update(rawBody).digest("hex");
+  const a = Buffer.from(expected);
+  const b = Buffer.from(String(receivedSignature));
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+function flattenMessages(payload) {
+  const result = [];
+  for (const entry of Array.isArray(payload.entry) ? payload.entry : []) {
+    for (const change of Array.isArray(entry.changes) ? entry.changes : []) {
+      const value = change && change.value ? change.value : {};
+      const metadata = value.metadata || {};
+      const names = new Map(
+        (Array.isArray(value.contacts) ? value.contacts : [])
+          .filter((item) => item && item.wa_id && item.profile && item.profile.name)
+          .map((item) => [String(item.wa_id), String(item.profile.name).slice(0, 120)]),
+      );
+      for (const message of Array.isArray(value.messages) ? value.messages : []) {
+        if (!message || typeof message.id !== "string" || typeof message.from !== "string") continue;
+        let body = "";
+        if (message.type === "text" && message.text && typeof message.text.body === "string") {
+          body = message.text.body;
+        } else if (message.interactive && message.interactive.button_reply) {
+          body = message.interactive.button_reply.title || "";
+        } else if (message.interactive && message.interactive.list_reply) {
+          body = message.interactive.list_reply.title || "";
+        } else if (message.button && typeof message.button.text === "string") {
+          body = message.button.text;
+        } else if (message.image && typeof message.image.caption === "string") {
+          body = message.image.caption;
+        } else if (message.document && typeof message.document.caption === "string") {
+          body = message.document.caption;
+        }
+        const rawTime = Number(message.timestamp);
+        const messageTime = Number.isFinite(rawTime) && rawTime > 0
+          ? new Date(rawTime * 1000).toISOString()
+          : new Date().toISOString();
+        result.push({
+          messageId: message.id,
+          conversationId: String(metadata.phone_number_id || "whatsapp") + ":" +
+            String(message.group_id || (message.context && message.context.group_id) || message.from),
+          senderId: message.from,
+          senderName: names.get(message.from) || null,
+          messageType: String(message.type || "unknown").slice(0, 40),
+          body: String(body).slice(0, 10000),
+          messageTime
+        });
+        if (result.length > MAX_MESSAGES_PER_EVENT) {
+          const error = new Error("too_many_messages");
+          error.statusCode = 413;
+          throw error;
+        }
+      }
+    }
+  }
+  return result;
+}
+
+function readyForWebhook() {
+  return Boolean(
+    process.env.META_APP_SECRET &&
+    process.env.META_WEBHOOK_VERIFY_TOKEN &&
+    process.env.DATABASE_URL &&
+    authConfigured()
+  );
 }
 
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
 
   if (req.method === "GET") {
-    // A verification success would let Meta subscribe immediately. Keep that
-    // impossible until durable event processing and human review are built.
-    const messageProcessingEnabled = false;
-    if (!messageProcessingEnabled) {
-      res.status(503).json({ error: "message_processor_not_ready" });
+    if (!readyForWebhook()) {
+      res.status(503).json({ error: "webhook_setup_incomplete" });
       return;
     }
     const query = getQuery(req);
     const mode = query.get("hub.mode");
     const token = query.get("hub.verify_token");
     const challenge = query.get("hub.challenge");
-
     if (
       mode === "subscribe" &&
-      process.env.META_WEBHOOK_VERIFY_TOKEN &&
       safeEqual(token, process.env.META_WEBHOOK_VERIFY_TOKEN) &&
       challenge
     ) {
+      try {
+        await ensureSchema();
+      } catch {
+        res.status(503).json({ error: "storage_unavailable" });
+        return;
+      }
       res.status(200).send(challenge);
       return;
     }
-
     res.status(403).json({ error: "webhook_verification_failed" });
     return;
   }
@@ -93,7 +147,6 @@ export default async function handler(req, res) {
     res.status(405).json({ error: "method_not_allowed" });
     return;
   }
-
   if (!process.env.META_APP_SECRET) {
     res.status(503).json({ error: "webhook_not_configured" });
     return;
@@ -106,14 +159,7 @@ export default async function handler(req, res) {
     res.status(error.statusCode || 400).json({ error: "invalid_request_body" });
     return;
   }
-
-  if (
-    !signatureIsValid(
-      rawBody,
-      req.headers["x-hub-signature-256"],
-      process.env.META_APP_SECRET,
-    )
-  ) {
+  if (!signatureIsValid(rawBody, req.headers["x-hub-signature-256"], process.env.META_APP_SECRET)) {
     res.status(401).json({ error: "invalid_webhook_signature" });
     return;
   }
@@ -125,18 +171,47 @@ export default async function handler(req, res) {
     res.status(400).json({ error: "invalid_json" });
     return;
   }
-
   if (!payload || payload.object !== "whatsapp_business_account") {
     res.status(400).json({ error: "unexpected_webhook_payload" });
     return;
   }
+  if (!readyForWebhook()) {
+    res.setHeader("Retry-After", "60");
+    res.status(503).json({ error: "webhook_setup_incomplete" });
+    return;
+  }
 
-  // Do not acknowledge a real event until durable storage, idempotency, and
-  // the human-review pipeline are connected. Meta can retry this request.
-  res.setHeader("Retry-After", "60");
-  res.status(503).json({
-    error: "message_processor_not_ready",
-    message:
-      "Signature verified. Message processing is intentionally disabled until durable storage and human review are configured.",
-  });
+  let messages;
+  try {
+    messages = flattenMessages(payload);
+  } catch (error) {
+    res.status(error.statusCode || 400).json({ error: error.message || "invalid_webhook_payload" });
+    return;
+  }
+
+  try {
+    const db = await ensureSchema();
+    await purgeExpired(db);
+    let inserted = 0;
+    for (const message of messages) {
+      const rows = await db.query(
+        "INSERT INTO arya_messages (message_id, conversation_id, sender_id, sender_name, message_type, body, message_time) " +
+        "VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz) ON CONFLICT (message_id) DO NOTHING RETURNING message_id",
+        [
+          message.messageId,
+          message.conversationId,
+          message.senderId,
+          message.senderName,
+          message.messageType,
+          message.body,
+          message.messageTime
+        ],
+      );
+      if (rows.length) inserted += 1;
+    }
+    res.status(200).json({ received: messages.length, stored: inserted, duplicates: messages.length - inserted });
+  } catch {
+    res.setHeader("Retry-After", "60");
+    res.status(503).json({ error: "storage_unavailable" });
+  }
 }
