@@ -1,5 +1,7 @@
 const required = [
   "OPENAI_API_KEY",
+  "OPENAI_MODEL",
+  "ARYA_INTERNAL_TOKEN",
   "META_ACCESS_TOKEN",
   "META_PHONE_NUMBER_ID",
   "META_APP_SECRET",
@@ -20,7 +22,12 @@ export default function handler(_req, res) {
     webhookVerification: Boolean(
       process.env.META_APP_SECRET && process.env.META_WEBHOOK_VERIFY_TOKEN,
     ),
+    protectedDraftEndpoint: Boolean(
+      process.env.OPENAI_API_KEY &&
+        process.env.OPENAI_MODEL &&
+        process.env.ARYA_INTERNAL_TOKEN,
+    ),
     messageProcessing: false,
-    note: "No message is processed or sent by this scaffold.",
+    note: "No WhatsApp message is processed or sent by this scaffold.",
   });
 }
