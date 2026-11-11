@@ -30,10 +30,10 @@ export default async function handler(req, res) {
     await purgeExpired(db);
     key = getClientRateKey(req);
     const blocked = await db.query(
-      "SELECT blocked_until > NOW() AS blocked FROM arya_login_limits WHERE key_hash = $1",
-      [key],
+      "SELECT key_hash, blocked_until > NOW() AS blocked FROM arya_login_limits WHERE key_hash IN ($1, $2)",
+      [key, "global_admin_login"],
     );
-    if (blocked[0] && blocked[0].blocked) {
+    if (blocked.some((entry) => entry.blocked)) {
       res.setHeader("Retry-After", "900");
       res.status(429).json({ error: "login_temporarily_blocked" });
       return;
@@ -45,13 +45,13 @@ export default async function handler(req, res) {
 
   if (!safeEqual(password, process.env.ARYA_ADMIN_PASSWORD)) {
     try {
-      await db.query(
+      for (const limitKey of [key, "global_admin_login"]) await db.query(
         "INSERT INTO arya_login_limits (key_hash, window_started_at, failures) VALUES ($1, NOW(), 1) " +
         "ON CONFLICT (key_hash) DO UPDATE SET " +
         "failures = CASE WHEN arya_login_limits.window_started_at < NOW() - INTERVAL '15 minutes' THEN 1 ELSE arya_login_limits.failures + 1 END, " +
         "window_started_at = CASE WHEN arya_login_limits.window_started_at < NOW() - INTERVAL '15 minutes' THEN NOW() ELSE arya_login_limits.window_started_at END, " +
         "blocked_until = CASE WHEN (CASE WHEN arya_login_limits.window_started_at < NOW() - INTERVAL '15 minutes' THEN 1 ELSE arya_login_limits.failures + 1 END) >= 8 THEN NOW() + INTERVAL '15 minutes' ELSE NULL END",
-        [key],
+        [limitKey],
       );
     } catch {
       res.status(503).json({ error: "storage_unavailable" });
