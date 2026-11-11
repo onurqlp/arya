@@ -16,6 +16,10 @@ const errorText = (code) => ({
   login_temporarily_blocked: "Giriş denemeleri geçici olarak sınırlandı. 15 dakika sonra deneyin.",
   storage_unavailable: "Veritabanına ulaşılamadı.",
   openai_not_configured: "OpenAI anahtarı ve model adı henüz eklenmedi.",
+  meta_send_not_configured: "Meta mesaj gönderim bilgileri henüz eklenmedi.",
+  individual_conversation_required: "Yalnızca doğrulanmış bireysel sohbetlere gönderim destekleniyor.",
+  meta_send_rejected: "Meta gönderimi reddetti. Numaranın izinlerini ve 24 saatlik mesajlaşma penceresini kontrol edin.",
+  meta_delivery_uncertain: "Meta yanıtı belirsiz. Tekrar göndermeden önce Meta'da teslim durumunu kontrol edin.",
   unauthorized: "Oturum sona erdi. Yeniden giriş yapın.",
   messages_must_share_conversation: "Aynı konuşmanın mesajlarını seçin.",
   openai_consent_required: "Analiz onayını işaretleyin."
@@ -139,9 +143,9 @@ function conversationPage() {
     empty("Gösterilecek gerçek konuşma yok.")) + '</section>';
 }
 function approvalsPage() {
-  return title("Ekibe Danışma", "Ajan taslakları insan incelemesine sunulur. Onay, WhatsApp’a mesaj göndermez.") +
+  return title("Ekibe Danışma", "Taslakları inceleyin; bireysel sohbetlere gönderim ayrıca Gönder düğmesiyle yapılır.") +
     '<section class="card"><div class="tabs">' +
-    [["pending", "Bekleyen"], ["approved", "Onaylanan"], ["rejected", "Reddedilen"]].map(([key, label]) =>
+    [["pending", "Bekleyen"], ["approved", "Onaylanan"], ["sent", "Gönderilen"], ["sending", "Kontrol gerekli"], ["rejected", "Reddedilen"]].map(([key, label]) =>
       '<button class="tab ' + (state.approvalStatus === key ? "active" : "") +
       '" data-status="' + key + '">' + label + '</button>').join("") + '</div><div id="approvalItems">Yükleniyor…</div></section>';
 }
@@ -156,7 +160,12 @@ async function fillApprovals(request) {
     (a.status === "pending" ? '<div class="actions">' +
     button("Onayla", 'data-approval="' + esc(a.id) + '" data-action="approve"', "primary") +
     button("Reddet", 'data-approval="' + esc(a.id) + '" data-action="reject"') + '</div>' :
-    '<span class="tag green">' + esc(a.status) + ' · gönderilmedi</span>') + '</article>').join("") :
+    a.status === "approved" ? (health.configured?.metaSend ?
+      button("WhatsApp’a gönder", 'data-send="' + esc(a.id) + '"', "primary") :
+      '<span class="tag yellow">Meta gönderim bağlantısı bekleniyor</span>') :
+    '<span class="tag ' + (a.status === "sent" ? "green" : "yellow") + '">' +
+      esc(a.status === "sent" ? "Gönderildi" : a.status === "sending" ? "Teslim durumu kontrol edilmeli" : "Reddedildi") +
+    '</span>') + '</article>').join("") :
     empty("Bu durumda kayıt yok.");
 }
 function insights() {
@@ -227,6 +236,14 @@ function bindActions() {
         id: element.dataset.approval, action: element.dataset.action }) });
       await render();
     } catch (error) { notice(errorText(error.code)); element.disabled = false; }
+  });
+  document.querySelectorAll("[data-send]").forEach((element) => element.onclick = async () => {
+    if (!confirm("Bu onaylanmış yanıtı bireysel WhatsApp sohbetine gönderelim mi?")) return;
+    element.disabled = true;
+    try {
+      await api("/api/admin/send", { method: "POST", body: JSON.stringify({ id: element.dataset.send }) });
+      state.approvalStatus = "sent"; await render(); notice("Mesaj Meta üzerinden gönderildi.");
+    } catch (error) { notice(errorText(error.code)); await render(); }
   });
 }
 async function render() {
