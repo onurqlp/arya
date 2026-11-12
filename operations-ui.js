@@ -33,6 +33,7 @@ export function mountOperations(page, { api, onUnauthorized }) {
       </section><section class="card ops-about"><h2>Bağlantıyı tamamlama</h2><p>CRM ve kurs panelinin yetkili veri erişimi tanımlandığında taramalar bu kaynaklardan alınır. Yönetici şifresini buradaki sorgu alanına yazmayın.</p>
         <a href="https://crm.aydadil.com/login" target="_blank" rel="noopener noreferrer">CRM panelini aç ↗</a>
         <a href="https://kurs.aydadil.com/login" target="_blank" rel="noopener noreferrer">Kurs panelini aç ↗</a>
+        <a href="/operations-import.html">Tarayıcı aktarım aracı ↗</a>
         <p class="muted-note">Panelde oturum açmak tek başına Arya'nın sunucu bağlantısını kurmaz. Giriş ve veri erişimi birlikte doğrulanmalıdır.</p>
       </section></aside>
     </div>
