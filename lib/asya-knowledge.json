@@ -1,0 +1,427 @@
+{
+  "title": "AYDA Instagram müşteri yanıt bilgi tabanı",
+  "version": "1.0",
+  "compiled_at": "2026-11-07",
+  "knowledge_usage": {
+    "source_of_truth": "Genel program ve hizmetlerde AYDA’nın güncel sitesi; sahibin bu ajan için doğrudan teyit ettiği dönem/grup bilgisi, aynı grup hakkındaki güncellenmemiş web kaydından üstündür.",
+    "date_rule": "time_sensitive_public_information kayıtlarını yalnızca geçerli oldukları tarih aralığında kullan. Aralık geçmişse eski tarihleri güncelmiş gibi verme; bildiğin genel kurs bilgisini yine de yanıtla ve yalnız güncel başlangıç tarihi gerçekten soruluyorsa eksik tarihi açıkça belirt.",
+    "conflict_rule": "Ajan için sahibin doğrudan verdiği, süresi geçmemiş grup başlangıç bilgisi aynı grubun eski web kaydından üstündür. Seviyeye ait yayımlanmış genel program bilgisini ayrıca kullan; bu bilgiyi özel bir grubun farklı olacağına dair kanıt yokken saklama veya teyit diye sunma.",
+    "unknown_rule": "Güncel AYDA sitesi, bu ajan için sahibin doğrudan verdiği bilgiler ve owner_confirmed_current_pricing alanını kaynak al. Bilinen bilgiyi doğrudan cevapla. Yalnız gerçekten kayıtlı olmayan, çelişkili veya geçerliliği geçmiş ayrıntıyı bilinmiyor diye belirt; ekip teyidi veya randevu teklifini varsayılan cevap yapma."
+  },
+  "sources": [
+    {
+      "name": "AYDA ana sayfa",
+      "url": "https://www.aydadil.com/",
+      "checked": "2026-11-07",
+      "authority": "güncel genel hizmet, Kasım 2026 grup programı ve eğitim modelinin özeti"
+    },
+    {
+      "name": "Kurslar ve ücret",
+      "url": "https://www.aydadil.com/kurslar-ve-ucret/",
+      "checked": "2026-11-07",
+      "authority": "güncel genel ders düzeni, başlangıç fiyatı ifadesi ve ilgili grup bağlantıları; kesin fiyat ve kayıt ekiple teyit edilir"
+    },
+    {
+      "name": "Eğitim sistemi",
+      "url": "https://www.aydadil.com/egitim-sistemi/",
+      "checked": "2026-11-07",
+      "authority": "ders, yoklama, ödev, kayıt, tekrar ve kurum içi değerlendirme"
+    },
+    {
+      "name": "Seviye testi",
+      "url": "https://www.aydadil.com/almanca-seviye-testi/",
+      "checked": "2026-11-07",
+      "authority": "A1-B2 testlerinin niteliği ve yerleştirme sınırı"
+    },
+    {
+      "name": "Sınav hazırlığı",
+      "url": "https://www.aydadil.com/almanca-sinav-hazirlik/",
+      "checked": "2026-11-07",
+      "authority": "ÖSD/telc/Goethe hedefli çalışma kapsamı"
+    },
+    {
+      "name": "Ekibimiz",
+      "url": "https://www.aydadil.com/ekibimiz/",
+      "checked": "2026-11-07",
+      "authority": "kurucular, sınav hazırlığı ekibi ve yalnızca tarihli dönem grup öğretmenleri"
+    },
+    {
+      "name": "Özel ders",
+      "url": "https://www.aydadil.com/ozel-ders/",
+      "checked": "2026-11-07",
+      "authority": "birebir dersin hedef ve esneklik kapsamı; ücret ve saatler ayrıca teyit edilir"
+    },
+    {
+      "name": "AYDA sahibi tarafından sağlanan güncel ticari ve danışmanlık kuralları",
+      "authority": "Güncel fiyat tablosu, ödeme/kampanya koşulları, satış konuşması ve randevu yaklaşımı; Meta/ManyChat teknik ayarlarının kaynağı değildir."
+    },
+    {
+      "name": "AYDA sahibi tarafından bu ajan için doğrulanan ücretsiz deneme dersi bilgisi",
+      "checked": "2026-11-08",
+      "authority": "Bir kez gerçek derse katılma; öğretmenin anlatım şeklini ve kursu deneyimleme. Bu bilgi ücretsiz telefon görüşmesinden ayrıdır."
+    },
+    {
+      "name": "A1 grup kursu",
+      "url": "https://www.aydadil.com/a1-almanca-kursu/",
+      "checked": "2026-11-07",
+      "authority": "A1 öğrenme hedefleri ve Kasım 2026 dönem bilgisi"
+    },
+    {
+      "name": "A2 grup kursu",
+      "url": "https://www.aydadil.com/a2-almanca-kursu/",
+      "checked": "2026-11-07",
+      "authority": "A2 öğrenme hedefleri ve Kasım 2026 dönem bilgisi"
+    },
+    {
+      "name": "B1 grup kursu",
+      "url": "https://www.aydadil.com/b1-almanca-kursu/",
+      "checked": "2026-11-07",
+      "authority": "B1 öğrenme hedefleri ve Kasım 2026 dönem bilgisi"
+    },
+    {
+      "name": "B2 grup kursu",
+      "url": "https://www.aydadil.com/b2-almanca-kursu/",
+      "checked": "2026-11-07",
+      "authority": "B2 öğrenme hedefleri ve Kasım 2026 dönem bilgisi"
+    },
+    {
+      "name": "ÖSD sınav hazırlığı",
+      "url": "https://www.aydadil.com/osd-sinav-hazirlik/",
+      "checked": "2026-11-07",
+      "authority": "ÖSD sayfasında açıklanan hedef seviye ve beceri çalışmaları"
+    },
+    {
+      "name": "telc sınav hazırlığı",
+      "url": "https://www.aydadil.com/telc-sinav-hazirlik/",
+      "checked": "2026-11-07",
+      "authority": "telc sayfasında açıklanan hedef seviye ve beceri çalışmaları"
+    },
+    {
+      "name": "Goethe sınav hazırlığı",
+      "url": "https://www.aydadil.com/goethe-sinav-hazirlik/",
+      "checked": "2026-11-07",
+      "authority": "Goethe sayfasında açıklanan hedef seviye ve beceri çalışmaları"
+    },
+    {
+      "name": "Hedefine göre program",
+      "url": "https://www.aydadil.com/hedefine-gore/",
+      "checked": "2026-11-07",
+      "authority": "aile, iş, Ausbildung, üniversite, sınav ve genel Almanca hedeflerinin yönlendirilmesi"
+    }
+  ],
+  "verified_public_information": {
+    "free_trial_lesson": {
+      "available": true,
+      "attendance": "Aday bir kez gerçek bir derse katılır.",
+      "purpose": "Hocanın anlatım şeklini görür ve kursu deneyimler.",
+      "limit": "Bir kişiye bir ücretsiz deneme dersi; ücretsiz 15 dakikalık değerlendirme görüşmesinden farklıdır."
+    },
+    "organization": {
+      "name": "AYDA Dil Akademisi (Ankara Yabancı Dil Akademisi)",
+      "service": "Türkiye'nin farklı şehirlerindeki öğrencilere çevrimiçi canlı Almanca eğitimi, sınav hazırlığı ve Almanya hedeflerine yönelik danışmanlık sunar.",
+      "group_levels": [
+        "A1",
+        "A2",
+        "B1",
+        "B2"
+      ],
+      "private_lesson_levels": "Güncel ana sayfa ve navigasyonda A1-C1 birebir ders olarak tanıtılır; C1 grubu veya özel ders takvimi ve uygunluk ekipten teyit edilir."
+    },
+    "level_guide": {
+      "A1": "Sıfırdan veya başlangıç düzeyinden başlayanlar için temel Almanca. Günlük basit iletişim ve temel ifadeler üzerinde ilerlenir.",
+      "A2": "Temel Almancası olan ve günlük iletişim becerilerini geliştirmek isteyenler için.",
+      "B1": "Orta seviyede daha bağımsız iletişim kurmayı hedefleyenler için.",
+      "B2": "İleri iletişim becerilerini geliştirmek isteyenler için.",
+      "placement": "AYDA'nın seviye testleri A1, A2, B1 ve B2 için sunulur. A1-B1 testlerinin Google Forms, B2 testinin Cornelsen üzerinden açıldığı yayımlanmıştır. Sonuç yalnızca başlangıç düzeyi için yardımcıdır; kesin yerleştirme değildir. Özellikle daha önce Almanca öğrenenlerde aktif kullanım ve eğitmen görüşüyle seviye belirlenmelidir.",
+      "test_url": "https://www.aydadil.com/almanca-seviye-testi/"
+    },
+    "group_course_format": {
+      "modality": "Zoom üzerinden canlı online ders",
+      "duration": "Bir kur ortalama 8 hafta sürer.",
+      "weekly_structure": "Haftada 3 canlı ana ders ve ayrı 1 konuşma dersi yapılır. Her ana ders 20.00-21.30 arasındaki 90 dakikalık derstir; 8 haftada toplam 36 saat ana ders eder. Buna ek olarak haftada 1 konuşma dersi vardır; konuşma dersinin süresi bu kayıtta belirtilmemiştir.",
+      "group_capacity_max_students": 12,
+      "main_class_time": "Yayımlanmış genel program: A1, A2 ve B1 ana dersleri Pazartesi-Çarşamba-Cuma 20.00-21.30; B2 ana dersleri Salı-Perşembe-Cuma 20.00-21.30. Genel A1 programı için bu bilgiyi ekip teyidi istemeden paylaş. Ajan için sahibin ayrıca doğruladığı 9 Kasım A1 başlangıç tarihini site kartındaki 16 Kasım tarihine dönüştürme.",
+      "recordings_and_materials": "Ders kayıtları ve konu videoları tekrar/kaçırılan dersi tamamlama amacıyla sunulur. Erişim süresi ve pakete göre kapsam ayrıca teyit edilir.",
+      "attendance_and_homework": "Canlı derse katılım öğretmen panelinde yoklama olarak işlenir. Öğretmen konuya göre ödev verir; öğrenci panelden iletir ve öğretmen kontrol edip geri bildirim verir.",
+      "progress": "Kur sonunda genel tekrar ve kurum içi değerlendirme yapılır. Öğretmen görüşmesiyle bir üst seviyeye geçiş veya tekrar ihtiyacı değerlendirilir.",
+      "monthly_openings": "Süresi geçmemiş sahip teyitli veya yayımlanmış grup başlangıçlarını doğrudan yanıtla. Yalnızca sayısal olarak güncel kontenjan ve ayrıca yayımlanmamış kayıt kapanış saatini teyit gerekir. Bu teyit gereğini, kullanıcı bu ayrıntıyı sormadan gündeme getirme.",
+      "internal_assessment_disclaimer": "Kur sonu değerlendirmesi AYDA'nın kurum içi değerlendirmesidir; resmî ÖSD, telc veya Goethe sınavı/sertifikası değildir."
+    },
+    "published_level_programs": {
+      "A1": {
+        "teacher": "Melda Hoca",
+        "main_days": "Pazartesi, Çarşamba ve Cuma",
+        "main_time": "20.00-21.30",
+        "speaking": "Salı 20.00"
+      },
+      "A2": {
+        "teacher": "Aylin Hoca",
+        "published_start_date": "16 Kasım 2026",
+        "main_days": "Pazartesi, Çarşamba ve Cuma",
+        "main_time": "20.00-21.30",
+        "speaking": "Salı 19.00"
+      },
+      "B1": {
+        "teacher": "Hazal Hoca",
+        "published_start_date": "23 Kasım 2026",
+        "main_days": "Pazartesi, Çarşamba ve Cuma",
+        "main_time": "20.00-21.30",
+        "speaking": "Perşembe 19.00"
+      },
+      "B2": {
+        "teacher": "Furkan Hoca",
+        "published_start_date": "23 Kasım 2026",
+        "main_days": "Salı, Perşembe ve Cuma",
+        "main_time": "20.00-21.30",
+        "speaking": "Yayımlanmış bilgi yok"
+      }
+    },
+    "speaking_schedule_published": "Yayımlanmış genel programda A1 konuşma Salı 20.00, A2 Salı 19.00, B1 Perşembe 19.00 olarak verilmiştir. Kullanıcı genel seviye programını sorarsa bu bilgiyi paylaş. Yalnızca 9 Kasım için farklı bir özel ders saati sorulursa, bu özel saat hakkında kayıt yoksa kesin konuşma.",
+    "exam_preparation": {
+      "exam_types": [
+        "ÖSD",
+        "telc",
+        "Goethe"
+      ],
+      "principle": "Hazırlık, hedef sınavın ve seviyenin formatına göre planlanır; üç sınavı aynı format gibi anlatma.",
+      "skills": [
+        "Okuma görevlerini çözme",
+        "Dinleme görevlerini çözme",
+        "Yazma metin türü ve yönergesine göre yazma",
+        "Konuşma görevi provası",
+        "Süre yönetimi ve sınav yönergelerini takip etme"
+      ],
+      "live_prep": "Sitede Dudu Hoca ile okuma, dinleme ve yazma örnek görevlerinin canlı çözümü; yazma için plan ve öğretmen geri bildirimi; sözlü bölüm için ayrıca prova tanıtılır.",
+      "scope_limit": "Sınav hazırlığı genel Almanca kursunun yerini tutmaz. Dil eksikleri ve sınav tekniği birlikte değerlendirilir.",
+      "important_limit": "Hazırlık eğitimi sunulması, AYDA'nın her sınav için kayıt merkezi olduğu veya sınav tarihi/koltuğu sağlayabildiği anlamına gelmez. Resmî başvuru, tarih, kontenjan, ücret ve kabul şartları değişebilir; ilgili resmî sınav merkezi ve AYDA ekibiyle teyit edin.",
+      "exam_url": "https://www.aydadil.com/almanca-sinav-hazirlik/",
+      "exam_specific_focus": {
+        "ÖSD": "Güncel sitede A1, A2 ve B1 özellikle belirtilir. Okuma yönergesi/ana fikir/ayrıntı, dinleme, görev maddelerine uygun yazma, konuşma etkileşimi, süreli uygulama ve yanlış analizi.",
+        "telc": "Sayfada özellikle B1 ve B2 ayrıntılandırılmıştır. Hedef telc türü ve seviyeye göre dört beceri, görev analizi, süreli uygulama ve geri bildirim.",
+        "Goethe": "Sitede A1-B2 hedefleri için bilgi sunulur. Dört beceri, örnek görevler, süreli uygulama, sözlü prova ve yazma geri bildirimi."
+      }
+    },
+    "private_lessons": {
+      "description": "Birebir dersler kişinin hedefi, mevcut seviyesi, öğrenme hızı ve zamanına göre planlanır.",
+      "possible_goals": [
+        "İş Almancası",
+        "ÖSD/telc/Goethe sınav hazırlığı",
+        "Akademik Almanca",
+        "Günlük konuşma",
+        "Gramer, kelime, dinleme ve konuşma ihtiyaçları"
+      ],
+      "format": "Ders saatleri ve süre kişisel hedefe göre planlanır; konuşma pratiği, dijital materyal ve kişiye özel çalışma planı içerebilir.",
+      "commercial_details": "Güncel özel ders ve 15 derslik sınav hazırlık ücretleri owner_confirmed_current_pricing alanında. Öğretmen uygunluğu, ders saati, iptal ve materyal erişim koşulları kişiye göre ekipten teyit edilir.",
+      "url": "https://www.aydadil.com/ozel-ders/"
+    },
+    "team": {
+      "size": "Sitede 12 kişilik ekip olarak tanıtılır.",
+      "founders": "Onur Hoca ve Esra Hoca kurucu ve Almanca öğretmenidir; site telc ve ÖSD sözlü sınav değerlendiricisi olduklarını belirtir.",
+      "tuba": "Tuba Hoca, siteye göre ÖSD A1 ve B1 sözlü sınavlarında Prüfer olarak görev alır.",
+      "dudu": "Dudu Hoca canlı sınav hazırlığında okuma, dinleme ve yazma görevleri üzerinde çalışır.",
+      "current_group_teachers": "Öğretmen eşleşmesi dönem programına bağlı ve değişkendir; yalnızca geçerli tarihli dönem kaydı içinde kullan."
+    },
+    "germany_guidance": "AYDA Almanya'da aile, eğitim ve iş hedeflerine yönelik danışmanlık ve eğitim yönlendirmesi tanıtır. Vize, denklik, işe/okula kabul veya göçmenlik sonucu konusunda garanti verme; kişinin durumu ve resmî kurum şartları değiştiğinden uzman/ilgili kurum teyidine yönlendir.",
+    "contact": {
+      "phone": "+90 540 912 25 03",
+      "whatsapp_url": "https://wa.me/905409122503",
+      "address": "Necatibey Caddesi 17/7, 06420 Çankaya / Ankara",
+      "website": "https://www.aydadil.com/",
+      "course_and_price_page": "https://www.aydadil.com/kurslar-ve-ucret/",
+      "contact_page": "https://www.aydadil.com/iletisim/",
+      "booking_url": "https://calendly.com/instaayda1/30min",
+      "booking_description": "Esra Hoca ile ücretsiz değerlendirme görüşmesi için Calendly üzerinden uygun saati seçin. Linki paylaşmak randevunun oluşturulduğu anlamına gelmez; müşteri saat seçmeden randevuyu kesinleşmiş gibi anlatma."
+    },
+    "level_profiles": {
+      "A1": {
+        "for": "Daha önce Almanca öğrenmemiş, uzun aradan sonra temelini yenilemek veya günlük iletişime başlangıç yapmak isteyenler.",
+        "practice": [
+          "Alfabe, telaffuz ve tanışma",
+          "Kişisel bilgiler, sayılar ve soru sorma",
+          "Aile, meslek ve günlük çevre",
+          "Rutinler, saat ve planlar",
+          "Yeme-içme, alışveriş ve fiyat",
+          "Şehir, yön ve ulaşım",
+          "Randevu, kısa mesaj ve basit formlar",
+          "Genel tekrar, konuşma provası ve kurum içi değerlendirme"
+        ],
+        "outcomes": "Temel kelime ve telaffuz, kısa soru-cevap, yavaş ve seviyeye uygun konuşmaları anlama, kısa mesaj/form ve basit cümle yazma.",
+        "progression": "A1'den sonra A2'de günlük iletişim uzar; daha uzun cümleler ve kısa anlatımlar çalışılır."
+      },
+      "A2": {
+        "for": "A1 temelini görmüş; günlük diyalogları uzatmak, plan ve deneyim anlatmak, B1 öncesi bilgisini sağlamlaştırmak isteyenler.",
+        "practice": [
+          "A1 yapılarının tekrarı ve günlük planlar",
+          "Ev, şehir ve yön tarifleri",
+          "Geçmiş deneyimler",
+          "Sağlık, randevu ve rica",
+          "İş, eğitim ve günlük sorumluluklar",
+          "Seyahat ve hizmet durumlarında iletişim",
+          "Kısa e-posta, mesaj ve olay anlatımı",
+          "Genel tekrar ve kurum içi değerlendirme"
+        ],
+        "outcomes": "Günlük olay ve planları anlatma, geçmiş deneyimlerden söz etme, kısa e-posta/mesaj yazma, kısa metinlerde ana bilgiyi bulma ve daha uzun diyalog kurma.",
+        "progression": "B1'de fikir ve deneyimler daha bağlantılı anlatılır. A1 eksiği belirginse seviye önce değerlendirilir."
+      },
+      "B1": {
+        "for": "A2 temelinden sonra günlük, eğitim ve iş yaşamında Almancayı daha bağımsız kullanmak isteyenler.",
+        "practice": [
+          "Deneyimleri sıralı anlatma",
+          "Görüş, gerekçe ve örnek sunma",
+          "İş ve eğitim iletişimi",
+          "Öneri, rica ve karşılıklı karar",
+          "Şikâyet ve resmî e-posta",
+          "Okuma/dinlemede ana fikir ve ayrıntı",
+          "Sunum, soru-cevap ve konuşmayı sürdürme",
+          "Genel tekrar ve görev provası"
+        ],
+        "outcomes": "Geçmiş olayları düzenli anlatma, görüşe kısa gerekçe ekleme, ana fikirle ayrıntıyı ayırma, daha uzun metni takip etme ve e-posta yazma.",
+        "progression": "B2'de kapsamlı metin, gerekçeli anlatım, karşılaştırma ve mesleki-akademik iletişim çalışılır."
+      },
+      "B2": {
+        "for": "B1 temelini konuşma ve yazıda kullanabilen; farklı konularda görüş karşılaştırıp daha kapsamlı metinlerle çalışmak isteyenler.",
+        "practice": [
+          "Karmaşık metinde ana sav ve yapı",
+          "Görüşleri karşılaştırma ve gerekçelendirme",
+          "Akademik ve mesleki içerikleri tartışma",
+          "Sunum ve ayrıntılı soru yanıtlama",
+          "Resmî ve gerekçeli metin oluşturma",
+          "Bağlaç, kelime seçimi ve anlatım tonu",
+          "Uzun dinleme/okuma görevlerini süreyle çözme",
+          "Genel tekrar, sözlü prova ve kurum içi değerlendirme"
+        ],
+        "outcomes": "Mesleki, akademik ve günlük konularda daha ayrıntılı iletişim, görüşleri savunma, uzun metinleri çözümleme ve yazılı/sözlü anlatımı güçlendirme.",
+        "class_schedule_note": "Kasım 2026 sayfasında ana ders günleri Salı, Perşembe ve Cuma 20.00-21.30; konuşma saati için ekipten teyit istenir."
+      }
+    },
+    "goal_pathways": {
+      "family_reunification": "Genel Almanca temeli ve hedeflenen sınav formatı için uygun çalışma yolunu belirleme; dil seviyesi veya vize sonucuna dair garanti verilmez.",
+      "work_in_germany": "Günlük/mesleki iletişim, iş görüşmesi ve yazılı iletişimi hedefe göre planlama.",
+      "ausbildung": "Genel Almanca temeli ve günlük iş ortamı iletişimini geliştirme; iş/yerleştirme veya vize garantisi değildir.",
+      "university": "Akademik okuma-yazma ve ileri seviye Almanca ihtiyacını değerlendirme; kabul koşulları ilgili üniversiteden doğrulanır.",
+      "exam": "ÖSD, telc veya Goethe türü, seviye ve zorlanılan beceriye göre çalışma.",
+      "general": "Mevcut seviye, öğrenme hedefi ve zaman planına göre grup ya da birebir ders seçme."
+    },
+    "owner_confirmed_current_pricing": {
+      "current_as_of": "2026-11-07",
+      "authority": "AYDA sahibi tarafından bu entegrasyon için verilen güncel ManyChat danışman promptu; eski arşiv fiyat kayıtlarını geçersiz kılar.",
+      "group_courses_tl": {
+        "A1": 13500,
+        "A2": 14000,
+        "A1+A2": 22000,
+        "B1": 15000,
+        "B2": 17000
+      },
+      "group_package_rules": {
+        "A1+A2 separate_total_tl": 27500,
+        "A1+A2 package_saving_tl": 5500,
+        "A1+A2+B1 total_tl": 37000,
+        "unavailable_packages": [
+          "B1+B2",
+          "A1-B1"
+        ]
+      },
+      "private_lessons_tl": {
+        "single": 3000,
+        "8 lessons": 18000,
+        "16 lessons": 31200,
+        "36 lessons": 60000,
+        "15-lesson individual exam preparation": 21600
+      },
+      "payment": "Tüm banka kredi kartlarına vade farksız 2 taksit.",
+      "promotions": [
+        "Arkadaşını getiren iki öğrenciye de %10 indirim.",
+        "Ailece katılımda ikinci kişiye %10 indirim.",
+        "Devam eden öğrenciye tek kurda %20 indirim.",
+        "Kurs alanlara tercümede %10 indirim ve ücretsiz sınav başvuru danışmanlığı.",
+        "Kampanyalar birleşmez; kontenjan ve uygunluk koşulunu ekip teyit eder."
+      ],
+      "rules": [
+        "Standart özel ders paketlerine sınav hazırlığı dâhil değildir.",
+        "15 derslik birebir sınav hazırlığı yalnız seviyesini tamamlayıp sınava hazırlanacak kişiye önerilir.",
+        "C1 grup kursu yoktur; C1 için birebir ders uygunluğu ayrıca değerlendirilir.",
+        "Yalnız sorulan fiyatı paylaş; kullanıcı liste istemedikçe tüm fiyatları sıralama."
+      ]
+    }
+  },
+  "time_sensitive_public_information": [
+    {
+      "valid_from": "2026-11-07",
+      "valid_until": "2026-11-09",
+      "checked_on": "2026-11-07",
+      "data": "AYDA sahibinin bu Instagram ajanı için doğrudan teyidi: sıradaki A1 grubu Pazartesi 9 Kasım 2026’da başlıyor. Yalnız A1 başlangıç tarihi sorulduğunda kullan; eski web kaydındaki farklı A1 tarihini bunun yerine koyma. Genel A1 öğretmeni ve ders programını published_level_programs.A1 içinden paylaş. Kontenjan ve ayrıca duyurulmamış kayıt kapanış saati bu kayıtta yok.",
+      "source": "AYDA sahibi tarafından bu ajan için doğrudan teyit edildi (2026-11-07)",
+      "levels": [
+        "A1"
+      ]
+    },
+    {
+      "valid_from": "2026-11-07",
+      "valid_until": "2026-11-23",
+      "checked_on": "2026-11-07",
+      "data": "Kasım 2026 için yayımlanmış başlangıç tarihleri: A2 16 Kasım; B1 ve B2 23 Kasım. Bu tarihler yalnız belirtilen seviyeler için geçerlidir. Öğretmen, ana ders günleri/saatleri ve yayımlanmış konuşma saatleri published_level_programs alanındadır. Güncel kontenjan ve ayrıca yayımlanmamış kayıt kapanış saati bu kayıtta yok.",
+      "source": "https://www.aydadil.com/",
+      "levels": [
+        "A2",
+        "B1",
+        "B2"
+      ]
+    }
+  ],
+  "historical_customer_insights": {
+    "period": "2026-10-08 to 2026-10-27",
+    "limitations": "Arşiv kısmi örnek ve kalite analizi içerir; güncel talep oranını veya güncel ticari bilgiyi kanıtlamaz.",
+    "recurring_topics": [
+      "A1/sıfırdan başlangıç",
+      "fiyat ve bütçe",
+      "hızlı başlangıç ve ders saatleri",
+      "deneme dersi",
+      "online ders",
+      "A1'den üst seviyelere ilerleme",
+      "ÖSD/telc/Goethe hazırlığı",
+      "C1 veya ileri seviye isteği",
+      "öğretmen iş başvurusu/işbirliği",
+      "sınav şikâyetleri"
+    ],
+    "quality_lessons": [
+      "Önce doğrudan soruyu cevapla.",
+      "Sohbette zaten verilen seviye, hedef veya iletişim tercihini tekrar sorma.",
+      "Eski arşiv fiyatlarını ve birbiriyle çelişen eski program yanıtlarını kullanma.",
+      "Telefon alındı, ekip arayacak, kayıt veya randevu tamamlandı gibi gerçekleşmemiş bir eylem iddia etme.",
+      "Şikâyeti satış fırsatı gibi ele alma.",
+      "Bütçe itirazında empati kur; doğrulanmamış indirim veya taksit uydurma. Doğrulanmış ücretsiz deneme dersini müşteriye açıkça anlat.",
+      "Teşekkür veya sessizliği satın alma niyeti sayma. Ücretsiz deneme dersi isteyen kişiye telefon görüşmesi/randevu yerine bir derslik ücretsiz deneme imkânını açıkla."
+    ]
+  },
+  "staff_confirmation_required": {
+    "prices": "Owner-confirmed current price table is the source for published course and private-lesson fees. Only future price changes, special campaign eligibility, payment exceptions, and package conditions not listed there require team confirmation.",
+    "availability": "Gelecek dönem başlangıcı, gün/saat, öğretmen ve konuşma saati knowledge içindeki güncel sahip teyidi veya yayımlanmış seviye programında varsa bunları doğrudan yanıtla. Yalnızca canlı kontenjan veya yayımlanmamış kayıt kapanış saati için teyit gerekir.",
+    "payments": "Taksit, kredi kartı farkı, indirim, kampanya ve ödeme planı.",
+    "trial": "Bir kişi bir kez ücretsiz gerçek derse katılabilir; hocanın anlatım şeklini görür ve kursu deneyimler. Bu bilgi doğrudan doğrulanmıştır. Deneme dersinin mevcut olduğunu sormak için ekip teyidi isteme; yalnız derse katılım zamanını ayarlaması gerekirse ve müşteri bunu isterse ekibe yönlendir.",
+    "refund_and_cancellation": "İptal, iade, dondurma ve kur tekrarı koşulları.",
+    "recording_access": "Kayıt/materyal erişim süresi ve pakete dahil olup olmadığı.",
+    "exam": "Resmî sınav başvurusu, sınav merkezi, tarih, ücret, kontenjan, sertifika ve deneme sınavının güncel kapsamı.",
+    "private_lessons": "Güncel birebir ders ücreti, paket, öğretmen ve saat uygunluğu.",
+    "germany_services": "Danışmanlığın mevcut kapsamı, ücreti ve bireysel uygunluk değerlendirmesi.",
+    "employment": "Açık pozisyon ve öğretmenlik/iş ortaklığı değerlendirmesi."
+  },
+  "not_for_customer_replies": {
+    "internal_rule": "Do not expose technical settings, stored credentials, internal process notes, or archived customer-chat metadata.",
+    "archived_price_rule": "Older archived prices are superseded by verified_public_information.owner_confirmed_current_pricing."
+  },
+  "conversation_goal": {
+    "primary": "Soruyu doğru cevapla, konuşmayı ilgili bir sonraki adıma taşı ve uygun olduğunda iletişim/randevu talebini kolaylaştır.",
+    "lead_fields": [
+      "hedef (aile/iş/eğitim/genel/sınav)",
+      "mevcut seviye",
+      "ilgilenilen kurs",
+      "tercih edilen iletişim yolu",
+      "telefon (yalnızca açık arama izni varsa)",
+      "uygun arama zamanı",
+      "randevu durumu ve saati",
+      "ekip devri durumu"
+    ],
+    "booking_option": "Müşteri açıkça randevu isterse veya kayıt/başlama niyetini belirtirse https://calendly.com/instaayda1/30min bağlantısını en fazla bir kez sun. Sadece bilgi, ücret, ders programı veya deneme dersi soran müşteriye randevu önerme. Telefonla aranmak isteyen müşteriye Calendly yerine yalnız eksik olan telefon numarasını, uygun zamanı ve arama iznini sor. Bu Calendly bağlantısı ücretsiz değerlendirme görüşmesidir; ücretsiz deneme dersi değildir.",
+    "call_option": "Müşteri aranmak istediğini açıkça söylerse telefon numarasını, uygun arama zamanını ve arama iznini iste. Numara/izin olmadan arama taahhüdü verme; ekip aramayı gerçekten yapmadıysa yapıldı gibi söyleme."
+  }
+}

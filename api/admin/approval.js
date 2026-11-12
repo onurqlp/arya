@@ -29,7 +29,7 @@ export default async function handler(req, res) {
     const rows = await db.query(
       "WITH updated AS (" +
       "UPDATE arya_approvals SET status = $2, reviewed_at = NOW(), reviewed_by = $3 " +
-      "WHERE id = $1 AND status = 'pending' RETURNING id" +
+      "WHERE id = $1 AND status = 'pending' AND ($2 = 'rejected' OR requires_owner_answer = FALSE) RETURNING id" +
       ") INSERT INTO arya_audit (id, actor, action, entity_id, details) " +
       "SELECT $4, $3, 'approval_' || $2, id, '{\"sent\":false}'::jsonb FROM updated RETURNING entity_id",
       [id, status, "admin", randomUUID()],

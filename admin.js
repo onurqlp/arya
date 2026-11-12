@@ -20,6 +20,7 @@ const errorText = (code) => ({
   meta_send_not_configured: "Meta mesaj gönderim bilgileri henüz eklenmedi.",
   individual_conversation_required: "Yalnızca doğrulanmış bireysel sohbetlere gönderim destekleniyor.",
   meta_send_rejected: "Meta gönderimi reddetti. Numaranın izinlerini ve 24 saatlik mesajlaşma penceresini kontrol edin.",
+  customer_service_window_closed: "Müşterinin 24 saatlik yanıt süresi dolmuş. Müşteri yeniden yazınca gönderim yapılabilir.",
   meta_subscription_failed: "Meta aboneliği tamamlanamadı. Aşağıdaki durum kodunu kontrol edin.",
   meta_delivery_uncertain: "Meta yanıtı belirsiz. Tekrar göndermeden önce Meta'da teslim durumunu kontrol edin.",
   unauthorized: "Oturum sona erdi. Yeniden giriş yapın.",
@@ -120,7 +121,7 @@ function overview() {
   return title("Genel Bakış", "Veritabanına kaydedilen WhatsApp mesajlarının mevcut durumu.", button("Yenile", 'data-refresh')) +
     '<div class="grid metrics">' + metric("Konuşma", c.conversations, "Gerçek kayıtlar") +
     metric("Bugün gelen", c.today, "Türkiye saatine göre") + metric("Son 7 gün", c.week, "Gelen mesajlar") +
-    metric("Onay bekleyen", pending, "Yanıt taslakları") + '</div>' +
+    metric("Ekibe danışılan", pending, "İnsan yanıtı gereken konular") + '</div>' +
     '<section class="card"><div class="cardhead"><h2>Son konuşmalar</h2>' +
     button("Tüm konuşmalar", 'data-route="conversations"') + '</div>' +
     (groups.length ? groups.slice(0, 8).map((g) => '<button class="conversation" data-conversation="' + esc(g.id) +
@@ -148,7 +149,7 @@ function conversationPage() {
     empty("Gösterilecek gerçek konuşma yok.")) + '</section>';
 }
 function approvalsPage() {
-  return title("Ekibe Danışma", "Taslakları inceleyin; bireysel sohbetlere gönderim ayrıca Gönder düğmesiyle yapılır.") +
+  return title("Ekibe Danışma", "Güvenle yanıtlanan mesajlar otomatik gönderilir. Bu listede ekip bilgisi gereken veya otomatik gönderilemeyen konular görünür.") +
     '<section class="card"><div class="tabs">' +
     [["pending", "Bekleyen"], ["approved", "Onaylanan"], ["sent", "Gönderilen"], ["sending", "Kontrol gerekli"], ["rejected", "Reddedilen"]].map(([key, label]) =>
       '<button class="tab ' + (state.approvalStatus === key ? "active" : "") +
@@ -160,10 +161,13 @@ async function fillApprovals(request) {
   const target = document.getElementById("approvalItems"); if (!target) return;
   target.innerHTML = result.approvals.length ? result.approvals.map((a) =>
     '<article class="live-approval"><b>' + esc(date(a.created_at)) + '</b> · ' +
+    '<span class="tag blue">Kod: ' + esc(a.owner_code || "—") + '</span> ' +
+    (a.requires_owner_answer ? '<span class="tag yellow">Ekip yanıtı gerekli</span> ' : '') +
+    (a.status === "pending" ? '<span class="tag ' + (a.owner_notification_status === "sent" ? "green" : "yellow") + '">Sahip bildirimi: ' + esc(a.owner_notification_status || "bekleniyor") + '</span> ' : '') +
     number(a.source_message_ids?.length) + ' mesaj<div class="live-approval-text"><b>Analiz</b><br>' +
     esc(a.analysis_text) + '</div><div class="live-approval-text"><b>Yanıt taslağı</b><br>' + esc(a.reply_text) + '</div>' +
     (a.status === "pending" ? '<div class="actions">' +
-    button("Onayla", 'data-approval="' + esc(a.id) + '" data-action="approve"', "primary") +
+    (a.requires_owner_answer ? '<span class="tag yellow">Yanıtı WhatsApp’tan CEVAP KOD: ... ile iletin</span>' : button("Onayla", 'data-approval="' + esc(a.id) + '" data-action="approve"', "primary")) +
     button("Reddet", 'data-approval="' + esc(a.id) + '" data-action="reject"') + '</div>' :
     a.status === "approved" ? (health.configured?.metaSend ?
       button("WhatsApp’a gönder", 'data-send="' + esc(a.id) + '"', "primary") :
@@ -176,10 +180,10 @@ async function fillApprovals(request) {
 function insights() {
   const all = summary.approvals || [];
   const total = all.reduce((sum, row) => sum + Number(row.count), 0);
-  return title("Analiz ve Bulgular", "Yalnızca seçilip analiz edilen gerçek mesajlardan oluşturulan kayıtlar.") +
+  return title("Analiz ve Bulgular", "Güvenli yanıtlar otomatik gider; eksik teyit veya insan kararı gereken konular ekibe yönelir.") +
     '<div class="grid metrics">' + metric("Üretilen analiz", total, "Gerçek taslak sayısı") +
-    metric("Bekleyen", all.find((a) => a.status === "pending")?.count, "Ekip incelemesi") +
-    metric("Onaylanan", all.find((a) => a.status === "approved")?.count, "Gönderim yapılmadı") +
+    metric("Bekleyen", all.find((a) => a.status === "pending")?.count, "Ekip yanıtı") +
+    metric("Onaylanan", all.find((a) => a.status === "approved")?.count, "Gönderim bekliyor") +
     metric("Reddedilen", all.find((a) => a.status === "rejected")?.count, "İncelenen taslak") + '</div>' +
     '<section class="card">' + (total ? button("Taslaklara git", 'data-route="approvals"') :
       empty("Henüz analiz yok. Bir konuşmadaki mesajları seçip analiz başlatabilirsiniz.")) + '</section>';
@@ -198,11 +202,14 @@ function reports() {
 }
 function setup() {
   const c = health.configured || {};
+  const owners = health.ownerMessaging || {};
   const assetAccessDenied = health.metaSubscription?.metaCode === 100 && health.metaSubscription?.metaSubcode === 33;
   const rows = [["Neon veritabanı", health.databaseReady], ["Yönetici erişimi", health.adminReady],
     ["OpenAI anahtarı ve model", c.openAI], ["Meta webhook adresi", health.webhookEndpointReady],
     ["AYDA WP1 webhook aboneliği", health.webhookSubscriptionReady],
-    ["WhatsApp mesaj gönderimi", health.outboundSending]];
+    ["WhatsApp mesaj gönderimi", health.outboundSending],
+    ["Sahip WhatsApp izin listesi", owners.enabled],
+    ["24 saat dışı sahip bildirim şablonu", owners.proactiveNotificationsReady]];
   return title("Ajan ve Bağlantılar", "Sunucu yapılandırmasının gerçek durumu. Anahtarlar burada gösterilmez.") +
     '<section class="card">' + rows.map(([label, ready]) =>
       '<div class="setting"><strong>' + esc(label) + '</strong><span class="tag ' +
@@ -214,7 +221,7 @@ function setup() {
       '<p class="warning">Bu jeton AYDA WP1 hesabını ve kayıtlı telefonu okuyamıyor. META_ACCESS_TOKEN değerini doğru sistem kullanıcısının WhatsApp varlık erişimiyle yeniden oluşturun.</p>' :
       !health.webhookSubscriptionReady && c.metaSend ?
       button("AYDA WP1 hesabını bağla", 'data-subscribe', "primary") : '') +
-    '</section><section class="card" style="margin-top:15px"><h2>Çalışma akışı</h2><p>Meta bağlantısı kurulunca imzalı yeni mesajlar kaydedilir. OpenAI bağlantısı eklenince yalnızca yönetici tarafından seçilen mesajlar analiz edilir. Taslak onayı kayıt durumunu değiştirir; gönderim açılana kadar WhatsApp’a yanıt gitmez.</p></section>';
+    '</section><section class="card" style="margin-top:15px"><h2>Çalışma akışı</h2><p>Yeni bireysel mesajlarda Asya’nın güncel yanıt kuralları ve AYDA bilgi tabanı kullanılır. Bilgisi doğrulanmış kısa yanıt müşteriye otomatik gönderilir. Güncel teyit veya insan kararı gereken konuda müşteriye bekleme mesajı gitmez; özet ve soru Onur ile Esra’ya özel iletilir. Ekip, müşteriye göndermek istediği yanıtı <b>CEVAP KOD: yanıtınız</b> yazarak iletir. WhatsApp komutları: DURUM, TASLAK KOD, CEVAP KOD: yanıtınız, RED KOD.</p></section>';
 }
 function bindActions() {
   document.querySelectorAll("[data-route]").forEach((element) => element.onclick = () => navigate(element.dataset.route));
