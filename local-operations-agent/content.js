@@ -234,8 +234,12 @@
       return { sourceKey: phone.replace(/\D/g, ''), phone, status, known: Boolean(status), rowIndex: index };
     });
     const pageText = fold(section.innerText);
-    const assignmentChecked = [...section.querySelectorAll('input[type="checkbox"]')].some(input => input.checked);
-    const explicitNone = /ödev verilmedi|ödev gönderilmedi|ödev atanmamış/.test(pageText) || !assignmentChecked;
+    const homeworkCheckbox = [...document.querySelectorAll('input[type="checkbox"]')].find(input => {
+      const labelText = [...(input.labels || [])].map(label => label.innerText).join(' ');
+      const nearby = input.closest('label')?.innerText || input.parentElement?.innerText || '';
+      return /ödev verdim|ödev atandı|odev atandi/.test(fold(labelText + ' ' + nearby));
+    });
+    const explicitNone = /ödev verilmedi|ödev gönderilmedi|ödev atanmamış/.test(pageText) || Boolean(homeworkCheckbox && !homeworkCheckbox.checked);
     return { known: explicitNone || (rows.length > 0 && rows.every(row => row.sourceKey && row.known)), rows, explicitNone };
   }
   function parseCourseDetail() {
@@ -259,7 +263,6 @@
     }
     const homework = parseHomeworkRows();
     const pageText = fold(document.body?.innerText);
-    const classDone = /ders yapıldı/.test(pageText) && !/ders yapıldı mı/.test(pageText);
     const noRoster = /crm'de bu grupta kayıtlı öğrenci yok|öğrenci bulunamadı/.test(pageText);
     const detailsText = fold(document.body?.innerText);
     const teacherMatch = detailsText.match(/(?:öğretmen|ogretmen|eğitmen|egitmen)\s*[:·-]?\s*([^\n·]+)/i);
@@ -269,7 +272,7 @@
       teacher: teacherMatch ? clean(teacherMatch[1]) : '', roster,
       attendanceKnown: (roster.length > 0 && roster.every(row => row.sourceKey && row.known && ['present', 'absent', 'excused', 'unrecorded'].includes(row.status))) || noRoster,
       homeworkKnown: homework.known, homeworkRows: homework.rows, homeworkExplicitNone: homework.explicitNone,
-      noRoster, classDone, route: location.pathname
+      noRoster, route: location.pathname
     };
   }
   async function scanPage() {

@@ -11,7 +11,6 @@ const settings = async () => (await chrome.storage.local.get(SETTINGS_KEY))[SETT
 const todayTR = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Istanbul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 const fold = value => String(value || '').trim().toLocaleLowerCase('tr-TR').normalize('NFC').replace(/\s+/g, ' ');
 const phoneKey = value => String(value || '').replace(/\D/g, '');
-const idOk = value => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,99}$/.test(value);
 const safeError = (error, fallback = 'scan_failed') => typeof error?.message === 'string' && /^[a-z_]+$/.test(error.message) ? error.message : fallback;
 
 function wait(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
@@ -44,10 +43,16 @@ async function scanUrl(url) {
   try {
     await waitTab(tab.id);
     await wait(900);
-    const response = await sendContent(tab.id);
-    if (!response?.ok || !response.data) throw new Error('page_parse_failed');
-    if (response.data.error) throw new Error(response.data.error);
-    return response.data;
+    let lastError = 'page_parse_failed';
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const response = await sendContent(tab.id);
+      if (!response?.ok || !response.data) throw new Error('page_parse_failed');
+      if (!response.data.error) return response.data;
+      lastError = response.data.error;
+      if (['login_required', 'crm_route_not_supported', 'course_route_not_supported'].includes(lastError)) break;
+      await wait(700);
+    }
+    throw new Error(lastError);
   } finally { await chrome.tabs.remove(tab.id).catch(() => {}); }
 }
 
