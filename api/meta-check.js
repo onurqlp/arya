@@ -12,7 +12,7 @@ async function check(path, includeIds = false) {
     const data = await response.json().catch(() => ({}));
     return { status: response.status, code: Number(data.error?.code) || null,
       subcode: Number(data.error?.error_subcode) || null,
-      ...(includeIds ? { ids: (Array.isArray(data.data) ? data.data : []).map(x => String(x.id || x.permission || "")) } : {}) };
+      ...(includeIds ? { id: String(data.id || ""), ids: (Array.isArray(data.data) ? data.data : []).map(x => String(x.id || x.permission || "")) } : {}) };
   } catch { return { status: 0, code: null }; }
 }
 export default async function handler(req, res) {
@@ -25,7 +25,7 @@ export default async function handler(req, res) {
     return res.status(503).json({ error: "not_configured" });
   }
   const [identity, permissions, waba, phoneResult, owned, client] = await Promise.all([
-    check('me?fields=id,name'),
+    check('me?fields=id,name', true),
     check('me/permissions?fields=permission,status', true),
     check(process.env.META_WABA_ID + '?fields=id,name'),
     check(phone + "?fields=id,verified_name"),
