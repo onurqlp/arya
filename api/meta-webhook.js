@@ -243,10 +243,14 @@ export default async function handler(req, res) {
     }
     let draftsCreated = 0;
     let draftFailures = 0;
+    let autoRepliesSent = 0;
+    let ownerEscalations = 0;
     for (const message of latestByConversation.values()) {
       try {
         const result = await createAutomaticReview(db, message);
         if (result.created) draftsCreated += 1;
+        if (result.autoSent) autoRepliesSent += 1;
+        if (result.escalated) ownerEscalations += 1;
       } catch {
         draftFailures += 1;
         await db.query(
@@ -262,6 +266,8 @@ export default async function handler(req, res) {
       nonIndividualIgnored,
       draftsCreated,
       draftFailures,
+      autoRepliesSent,
+      ownerEscalations,
       ownerMessagesHandled,
       ownerRepliesFailed,
     });
