@@ -37,10 +37,15 @@ export default async function handler(req, res) {
   try {
     const db = await ensureSchema();
     if (req.method === "GET") {
-      const rows = await db.query("SELECT group_names, updated_at FROM arya_local_group_config WHERE id = 'default'");
+      const [rows, stats] = await Promise.all([
+        db.query("SELECT group_names, updated_at FROM arya_local_group_config WHERE id = 'default'"),
+        db.query("SELECT COUNT(*)::int AS total, MAX(received_at) AS last_received FROM arya_messages WHERE message_type = 'group-preview'")
+      ]);
       res.status(200).json({
         groups: rows[0]?.group_names || [],
         updatedAt: rows[0]?.updated_at || null,
+        totalReceived: stats[0]?.total || 0,
+        lastReceived: stats[0]?.last_received || null,
         secretConfigured: Boolean(process.env.ARYA_LOCAL_GROUP_INGEST_SECRET &&
           process.env.ARYA_LOCAL_GROUP_INGEST_SECRET.length >= 32)
       });
