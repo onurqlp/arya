@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Arya Kurum Ajanı</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div class="mark">A</div>
+      <div><p class="eyebrow">ARYA · YEREL TARAYICI AJANI</p><h1>Kurum Takip</h1></div>
+    </header>
+    <p class="intro">CRM ve kurs panellerini bu tarayıcıdaki açık oturumla okur. Kaynak sitelerde değişiklik yapmaz.</p>
+
+    <section class="status" id="status" role="status" aria-live="polite">Hazır. Taramayı başlatın.</section>
+    <button class="primary" id="scan">Panelleri tara</button>
+
+    <section id="review" hidden>
+      <h2>Tarama özeti</h2>
+      <div class="counts" id="counts"></div>
+      <label class="consent">
+        <input type="checkbox" id="approveMatches">
+        <span>Önerilen eşleşmeleri onaylıyorum: öğrenciler yalnızca iki paneldeki telefon numarası birebir ve tekilse; gruplar ad ve seviye birebir ve tekilse eşleştirilsin. Eşleşme tarayıcıda yapılır.</span>
+      </label>
+      <button class="secondary" id="confirm">Eşleşme kuralını onayla</button>
+      <button class="primary" id="publish" disabled>Arya Kurum Takip'e aktar</button>
+    </section>
+
+    <section class="auto">
+      <label><input type="checkbox" id="autoSync"><span>Otomatik tara ve aktar · 6 saatte bir</span></label>
+      <small>Bilgisayar ve Chrome/Edge açık, panellerin oturumları geçerli olmalı.</small>
+    </section>
+
+    <div class="actions">
+      <a href="https://arya-whatsapp-panel.vercel.app/operations-import.html" target="_blank" rel="noreferrer">Arya yönetici aktarım sayfası ↗</a>
+      <button class="text" id="clear">Yerel tarama verisini sil</button>
+    </div>
+    <footer>Veri önce yerelde incelenir; yalnızca aktar düğmesiyle Arya'ya gider. GPT'ye gönderilmez.</footer>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>
