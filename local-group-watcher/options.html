@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Arya grup izleyicisi ayarları</title>
+  <style>
+    body{font:15px/1.5 system-ui,sans-serif;max-width:760px;margin:36px auto;padding:0 18px;color:#17202b}
+    h1{margin-bottom:4px}p{color:#526170}label{display:block;font-weight:700;margin:18px 0 6px}
+    input,textarea{box-sizing:border-box;width:100%;padding:10px;border:1px solid #bdc7d1;border-radius:8px;font:inherit}
+    textarea{min-height:130px}button{margin-top:18px;padding:10px 16px;border:0;border-radius:8px;background:#157d63;color:white;font-weight:700;cursor:pointer}
+    .note{padding:12px 14px;background:#f4f2e7;border:1px solid #ded8b4;border-radius:8px}
+    #status{margin-left:10px}
+  </style>
+</head>
+<body>
+  <h1>Arya grup izleyicisi</h1>
+  <p>WhatsApp Web’in sol sohbet listesindeki izin verdiğin grupların son mesaj önizlemesini Arya’ya iletir.</p>
+  <div class="note"><strong>Sınır:</strong> Bu sürüm grup sohbetini açmaz ve mesaj göndermez. Yalnızca listede görünen son önizlemeyi okur; aynı anda gelen birden fazla mesajı kaçırabilir. Tam sohbet geçmişini veya medyayı almaz.</div>
+  <label for="endpoint">Arya adresi</label>
+  <input id="endpoint" value="https://arya-whatsapp-panel.vercel.app" autocomplete="url">
+  <label for="secret">Arya aktarım anahtarı</label>
+  <input id="secret" type="password" autocomplete="off">
+  <label for="groups">İzlenecek grup adları (her satıra bir tane, Arya tarafındaki izin listesiyle aynı olmalı)</label>
+  <textarea id="groups" placeholder="AYDA A1&#10;AYDA B1"></textarea>
+  <button id="save">Kaydet</button><span id="status" role="status"></span>
+  <script src="options.js"></script>
+</body>
+</html>
