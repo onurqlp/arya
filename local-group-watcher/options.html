@@ -16,6 +16,9 @@
 <body>
   <h1>Arya grup izleyicisi</h1>
   <p>WhatsApp Web’in sol sohbet listesindeki izin verdiğin grupların son mesaj önizlemesini Arya’ya iletir.</p>
+  <label for="importConfig">Arya panelinden indirdiğin bağlantı dosyası</label>
+  <input id="importConfig" type="file" accept="application/json,.json">
+  <p class="note">Dosyayı içe aktarınca Arya adresi, aktarım anahtarı ve grup listesi dolar. Bu dosyayı kimseyle paylaşma.</p>
   <div class="note"><strong>Sınır:</strong> Bu sürüm grup sohbetini açmaz ve mesaj göndermez. Yalnızca listede görünen son önizlemeyi okur; aynı anda gelen birden fazla mesajı kaçırabilir. Tam sohbet geçmişini veya medyayı almaz.</div>
   <label for="endpoint">Arya adresi</label>
   <input id="endpoint" value="https://arya-whatsapp-panel.vercel.app" autocomplete="url">
