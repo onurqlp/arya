@@ -6,7 +6,7 @@ Chrome/Edge Manifest V3 extension. It reads only the logged-in AYDA CRM and cour
 
 - CRM routes: `/ogrenciler`, `/gruplar`, `/odemeler`.
 - Course routes: `/ogretmen` and its current-month `/ogretmen/grup/{uuid}?tarih=YYYY-MM-DD` pages.
-- Read-only: the extension opens temporary background tabs and reads rendered rows/cards. It does not click source controls, submit forms, modify records, message WhatsApp, or call Meta.
+- Read-only: the extension opens temporary background tabs and reads rendered rows/cards. To cover active/archived groups it may select a view filter in those temporary tabs; it never saves, submits forms, or changes source records, messages WhatsApp, or calls Meta.
 - Student IDs come from CRM detail links. Course student records are linked only when the normalized phone number is unique and equal in both systems. Course groups are linked only when the group name and level produce one exact CRM match. The owner must confirm this rule in the extension before any upload.
 - Before upload, both source snapshots must pass the existing strict Arya schema validator. Missing pages, ambiguous links, a login screen, unmatched identities, or uncertain attendance/homework stop publication.
 - No student, phone, or payment data is sent to GPT. The extension keeps the pending snapshot in `chrome.storage.session` until upload or browser close, then removes it after successful publication.
