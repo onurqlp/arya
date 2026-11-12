@@ -25,7 +25,10 @@ const errorText = (code) => ({
   meta_delivery_uncertain: "Meta yanıtı belirsiz. Tekrar göndermeden önce Meta'da teslim durumunu kontrol edin.",
   unauthorized: "Oturum sona erdi. Yeniden giriş yapın.",
   messages_must_share_conversation: "Aynı konuşmanın mesajlarını seçin.",
-  openai_consent_required: "Analiz onayını işaretleyin."
+  openai_consent_required: "Analiz onayını işaretleyin.",
+  group_allowlist_empty: "Önce en az bir grup adı kaydedin.",
+  group_watcher_key_not_configured: "Grup izleyici anahtarı henüz yapılandırılmadı.",
+  invalid_group_list: "Grup listesi geçersiz. En fazla 50 grup ve her ad en fazla 100 karakter olabilir."
 })[code] || "İşlem tamamlanamadı (" + (code || "bağlantı hatası") + ").";
 
 async function api(path, options = {}) {
@@ -54,7 +57,7 @@ function navigate(route, conversation = null) {
 }
 function setNavigation() {
   const labels = { overview: "Genel Bakış", conversations: "Konuşmalar", approvals: "Ekibe Danışma",
-    insights: "Analiz ve Bulgular", reports: "Raporlar", operations: "Kurum Takip", setup: "Ajan ve Bağlantılar" };
+    insights: "Analiz ve Bulgular", reports: "Raporlar", operations: "Kurum Takip", setup: "Ajan ve Bağlantılar", "group-watcher": "Grup İzleyici" };
   document.getElementById("crumb").textContent = labels[state.route] || "Konuşma";
   document.querySelectorAll("#nav button, .nav button").forEach((node) =>
     node.classList.toggle("active", node.dataset.page === state.route));
@@ -223,11 +226,87 @@ function setup() {
       button("AYDA WP1 hesabını bağla", 'data-subscribe', "primary") : '') +
     '</section><section class="card" style="margin-top:15px"><h2>Çalışma akışı</h2><p>Yeni bireysel mesajlarda Asya’nın güncel yanıt kuralları ve AYDA bilgi tabanı kullanılır. Bilgisi doğrulanmış kısa yanıt müşteriye otomatik gönderilir. Güncel teyit veya insan kararı gereken konuda müşteriye bekleme mesajı gitmez; özet ve soru Onur ile Esra’ya özel iletilir. Ekip, müşteriye göndermek istediği yanıtı <b>CEVAP KOD: yanıtınız</b> yazarak iletir. WhatsApp komutları: DURUM, TASLAK KOD, CEVAP KOD: yanıtınız, RED KOD.</p></section>';
 }
+function groupWatcher() {
+  return title("Grup İzleyici", "Üçüncü numaranın WhatsApp Web grup önizlemelerini Arya’ya bağla.") +
+    '<section class="card"><div class="warning"><strong>Bu pilot yalnızca yan panelde görünen son mesaj önizlemesini alır.</strong> Grup sohbetini açmaz, gruba mesaj göndermez; hızlı mesajları veya görünmeyen satırları kaçırabilir.</div>' +
+    '<form id="groupWatcherForm"><label for="groupNames">İzlenecek gruplar</label><p class="muted-note">WhatsApp Web’de göründüğü gibi, her grup adını ayrı satıra yaz. Buradaki liste sunucu ve eklenti izin listesini birlikte ayarlar.</p>' +
+    '<textarea id="groupNames" class="content-search" style="display:block;width:100%;min-height:130px" placeholder="Grup adı 1&#10;Grup adı 2"></textarea>' +
+    '<div class="actions" style="margin-top:12px"><button class="btn primary" type="submit">Grup listesini kaydet</button>' +
+    '<button class="btn secondary" type="button" id="downloadWatcherConfig" disabled>Bağlantı dosyasını indir</button></div></form></section>' +
+    '<section class="card" style="margin-top:15px"><h2>Bağlantı durumu</h2><p id="groupWatcherStatus">Durum yükleniyor…</p>' +
+    '<p id="groupWatcherActivity" class="muted-note"></p></section>' +
+    '<section class="card" style="margin-top:15px"><h2>Windows kurulumu</h2>' +
+    '<div class="step"><span class="stepnum">1</span><div><strong>Grup adlarını kaydet</strong><p>Yalnızca buraya yazdığın gruplar aktarılır.</p></div></div>' +
+    '<div class="step"><span class="stepnum">2</span><div><strong>Bağlantı dosyasını indir</strong><p>Bu dosya eklentiyi Arya’ya bağlayan anahtarı içerir; kimseyle paylaşma.</p></div></div>' +
+    '<div class="step"><span class="stepnum">3</span><div><strong>Chrome veya Edge’e eklentiyi yükle</strong><p>PR yayına alındığında eklenti klasörünü Arya’dan indirip “Load unpacked” ile seç.</p></div></div>' +
+    '<div class="step"><span class="stepnum">4</span><div><strong>Üçüncü numarayı QR ile bağla</strong><p>WhatsApp Web’i Windows bilgisayarında aç; telefondan QR’ı tara ve bilgisayarı açık bırak.</p></div></div></section>';
+}
+
+async function fillGroupWatcher(request) {
+  const result = await api("/api/admin/local-group-watcher");
+  if (request !== state.request) return;
+  const names = document.getElementById("groupNames");
+  const status = document.getElementById("groupWatcherStatus");
+  const activity = document.getElementById("groupWatcherActivity");
+  const download = document.getElementById("downloadWatcherConfig");
+  if (!names || !status || !activity || !download) return;
+  names.value = (result.groups || []).join("\n");
+  status.textContent = result.secretConfigured
+    ? "Arya aktarım anahtarı hazır. Grup listesi " + ((result.groups || []).length ? "kaydedildi." : "henüz boş.")
+    : "Arya aktarım anahtarı henüz yapılandırılmadı.";
+  activity.textContent = result.lastReceived
+    ? "Son alınan önizleme: " + date(result.lastReceived) + " · Toplam " + number(result.totalReceived) + " kayıt."
+    : "Eklenti henüz grup önizlemesi göndermedi.";
+  download.disabled = !result.secretConfigured || !(result.groups || []).length;
+}
+
 function bindActions() {
   document.querySelectorAll("[data-route]").forEach((element) => element.onclick = () => navigate(element.dataset.route));
   document.querySelectorAll("[data-conversation]").forEach((element) => element.onclick = () =>
     navigate("conversations", element.dataset.conversation));
   document.querySelectorAll("[data-refresh]").forEach((element) => element.onclick = render);
+  const watcherForm = document.getElementById("groupWatcherForm");
+  if (watcherForm) watcherForm.onsubmit = async (event) => {
+    event.preventDefault();
+    const submit = watcherForm.querySelector('[type="submit"]');
+    submit.disabled = true;
+    try {
+      const groups = document.getElementById("groupNames").value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+      await api("/api/admin/local-group-watcher", {
+        method: "POST",
+        body: JSON.stringify({ action: "save", groups })
+      });
+      notice("Grup izin listesi kaydedildi.");
+      await fillGroupWatcher(state.request);
+    } catch (error) {
+      notice(errorText(error.code));
+    } finally {
+      submit.disabled = false;
+    }
+  };
+  const downloadWatcherConfig = document.getElementById("downloadWatcherConfig");
+  if (downloadWatcherConfig) downloadWatcherConfig.onclick = async () => {
+    downloadWatcherConfig.disabled = true;
+    try {
+      const config = await api("/api/admin/local-group-watcher", {
+        method: "POST",
+        body: JSON.stringify({ action: "export" })
+      });
+      const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "arya-group-watcher-config.json";
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      notice("Bağlantı dosyası indirildi. Kimseyle paylaşma.");
+    } catch (error) {
+      notice(errorText(error.code));
+    } finally {
+      await fillGroupWatcher(state.request).catch(() => {});
+    }
+  };
+  document.querySelectorAll("[data-group-refresh]").forEach((element) => element.onclick = () => fillGroupWatcher(state.request));
   const subscribe = document.querySelector("[data-subscribe]");
   if (subscribe) subscribe.onclick = async () => {
     subscribe.disabled = true;
@@ -303,9 +382,14 @@ async function render() {
   }
   page.innerHTML = ({
     overview, conversations: conversationPage, approvals: approvalsPage,
-    insights, reports, setup
+    insights, reports, setup, "group-watcher": groupWatcher
   }[state.route] || overview)();
   bindActions();
+  if (state.route === "group-watcher") {
+    try { await fillGroupWatcher(request); bindActions(); } catch (error) {
+      if (request === state.request) page.innerHTML = '<div class="warning">' + esc(errorText(error.code)) + '</div>';
+    }
+  }
   if (state.route === "approvals") {
     try { await fillApprovals(request); bindActions(); } catch (error) {
       const node = document.getElementById("approvalItems");
