@@ -27,6 +27,7 @@ export default async function handler(_req, res) {
   const metaSubscription = webhookEndpointReady ? await subscriptionStatus() : { state: "not_configured", subscribed: false };
   const webhookReady = webhookEndpointReady && metaSubscription.subscribed;
   const draftReady = databaseReady && adminReady && configured.openAI;
+  const assetAccessDenied = metaSubscription.metaCode === 100 && metaSubscription.metaSubcode === 33;
 
   res.setHeader("Cache-Control", "no-store");
   res.status(200).json({
@@ -40,7 +41,7 @@ export default async function handler(_req, res) {
     webhookSubscriptionReady: webhookReady,
     protectedDraftEndpoint: draftReady,
     messageStorage: databaseReady && adminReady,
-    outboundSending: databaseReady && adminReady && configured.metaSend,
+    outboundSending: databaseReady && adminReady && configured.metaSend && !assetAccessDenied,
     note: "Incoming messages need both the verified callback and a WABA subscription. Analysis and individual message sending require separate admin actions. Approval alone does not send."
   });
 }
