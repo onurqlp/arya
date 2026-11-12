@@ -34,3 +34,22 @@ document.getElementById("save").addEventListener("click", () => {
     status.textContent = result?.ok ? "Ayarlar kaydedildi." : "Kaydedilemedi.";
   });
 });
+
+document.getElementById("importConfig").addEventListener("change", async (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  try {
+    const value = JSON.parse(await file.text());
+    if (
+      typeof value.endpoint !== "string" ||
+      typeof value.secret !== "string" ||
+      !Array.isArray(value.groups)
+    ) throw new Error("invalid_config");
+    endpoint.value = value.endpoint;
+    secret.value = value.secret;
+    groups.value = value.groups.join("\n");
+    status.textContent = "Bağlantı bilgileri yüklendi. Kaydet’e bas.";
+  } catch {
+    status.textContent = "Bağlantı dosyası okunamadı.";
+  }
+});
