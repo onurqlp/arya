@@ -36,6 +36,19 @@ function recipients() {
     .filter((value) => /^\d{10,15}$/.test(value));
 }
 
+async function claimAlertSlot(db, recipient, groupName) {
+  await db.query(
+    "CREATE TABLE IF NOT EXISTS arya_local_group_alerts (group_name TEXT NOT NULL, recipient TEXT NOT NULL, last_sent_at TIMESTAMPTZ NOT NULL, PRIMARY KEY (group_name, recipient))",
+  );
+  const claimed = await db.query(
+    "INSERT INTO arya_local_group_alerts (group_name, recipient, last_sent_at) VALUES ($1, $2, NOW()) " +
+    "ON CONFLICT (group_name, recipient) DO UPDATE SET last_sent_at = NOW() " +
+    "WHERE arya_local_group_alerts.last_sent_at < NOW() - INTERVAL '5 minutes' RETURNING group_name",
+    [groupName, recipient],
+  );
+  return claimed.length > 0;
+}
+
 async function notifyRecipient(db, recipient, groupName, messages) {
   const token = process.env.META_ACCESS_TOKEN;
   const phoneId = process.env.META_PHONE_NUMBER_ID;
@@ -48,6 +61,8 @@ async function notifyRecipient(db, recipient, groupName, messages) {
   );
   const lastInbound = recent[0]?.latest ? new Date(recent[0].latest).getTime() : 0;
   if (!lastInbound || Date.now() - lastInbound > 24 * 60 * 60 * 1000) return "outside_window";
+
+  if (!(await claimAlertSlot(db, recipient, groupName))) return "throttled";
 
   const excerpt = messages.map((message) => message.body).join("\n").slice(0, 2800);
   const body = ("Arya · Grup bildirimi\n" + groupName + "\n\n" + excerpt +
@@ -76,7 +91,7 @@ async function notifyRecipient(db, recipient, groupName, messages) {
 
   await db.query(
     "INSERT INTO arya_audit (id, actor, action, entity_id, details) VALUES ($1, 'local-group-watcher', 'group_alert_sent', $2, $3::jsonb)",
-    [randomUUID(), groupName, JSON.stringify({ recipient, providerMessageId: providerId, messageCount: messages.length })],
+    [randomUUID(), groupName, JSON.stringify({ providerMessageId: providerId, messageCount: messages.length })],
   );
   return "sent";
 }
@@ -156,13 +171,17 @@ export default async function handler(req, res) {
       if (rows.length) inserted.push({ body: rows[0].body, messageTime: rows[0].message_time });
     }
 
-    const notify = {};
+    const notificationCounts = { sent: 0, outsideWindow: 0, throttled: 0, failed: 0 };
     if (inserted.length) {
       for (const recipient of recipients()) {
         try {
-          notify[recipient] = await notifyRecipient(db, recipient, groupName, inserted);
+          const status = await notifyRecipient(db, recipient, groupName, inserted);
+          if (status === "sent") notificationCounts.sent += 1;
+          else if (status === "outside_window") notificationCounts.outsideWindow += 1;
+          else if (status === "throttled") notificationCounts.throttled += 1;
+          else notificationCounts.failed += 1;
         } catch {
-          notify[recipient] = "notification_unavailable";
+          notificationCounts.failed += 1;
         }
       }
     }
@@ -170,7 +189,7 @@ export default async function handler(req, res) {
       received: messages.length,
       stored: inserted.length,
       duplicates: messages.length - inserted.length,
-      notifications: notify
+      notifications: notificationCounts
     });
   } catch {
     res.status(503).json({ error: "storage_unavailable" });
