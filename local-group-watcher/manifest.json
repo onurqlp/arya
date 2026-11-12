@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Arya Grup Önizleme İzleyicisi",
+  "version": "0.1.0",
+  "description": "Allowlisted WhatsApp Web group sidebar previews to Arya, read-only.",
+  "permissions": ["storage", "alarms"],
+  "host_permissions": [
+    "https://web.whatsapp.com/*",
+    "https://arya-whatsapp-panel.vercel.app/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Arya grup izleyicisi",
+    "default_popup": "options.html"
+  },
+  "options_page": "options.html",
+  "content_scripts": [
+    {
+      "matches": ["https://web.whatsapp.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
