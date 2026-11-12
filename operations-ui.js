@@ -29,10 +29,11 @@ export function mountOperations(page, { api, onUnauthorized }) {
       <aside class="ops-sidebar"><section class="card"><div class="cardhead"><h2>Veri bağlantıları</h2><button class="btn secondary" id="operationsStatusRefresh" type="button">Durumu yenile</button></div>
         <div id="operationsSources" aria-live="polite">Bağlantı durumu yükleniyor…</div>
         <div class="ops-schedule"><strong>Günde 3 tarama</strong><p>09.00 · 14.00 · 19.00 <span class="muted-note">Türkiye saati</span></p><p class="muted-note" id="operationsScheduleState"></p>
-          <button type="button" class="btn secondary" id="operationsScan">Şimdi tara</button></div>
-      </section><section class="card ops-about"><h2>Bağlantıyı tamamlama</h2><p>CRM ve kurs panelinin yetkili veri erişimi tanımlandığında taramalar bu kaynaklardan alınır. Yönetici şifresini buradaki sorgu alanına yazmayın.</p>
+          <a class="btn secondary" href="/operations-import.html">Tarayıcı aktarım aracını aç</a></div>
+      </section><section class="card ops-about"><h2>Bağlantıyı tamamlama</h2><p>Tarayıcı ajanı CRM ve kurs panellerini salt okunur tarar; doğrulanan anlık görüntüler bu sekmede kullanılır. Yönetici şifresini buraya yazmayın.</p>
         <a href="https://crm.aydadil.com/login" target="_blank" rel="noopener noreferrer">CRM panelini aç ↗</a>
         <a href="https://kurs.aydadil.com/login" target="_blank" rel="noopener noreferrer">Kurs panelini aç ↗</a>
+        <a href="/operations-import.html">Tarayıcı aktarım aracı ↗</a>
         <p class="muted-note">Panelde oturum açmak tek başına Arya'nın sunucu bağlantısını kurmaz. Giriş ve veri erişimi birlikte doğrulanmalıdır.</p>
       </section></aside>
     </div>
@@ -42,7 +43,7 @@ export function mountOperations(page, { api, onUnauthorized }) {
   const form = page.querySelector('#operationsForm'), select = page.querySelector('#operationType');
   const search = page.querySelector('#operationSearch'), submit = page.querySelector('#operationsSubmit');
   const result = page.querySelector('#operationsResult'), sources = page.querySelector('#operationsSources');
-  const scanButton = page.querySelector('#operationsScan'), refreshButton = page.querySelector('#operationsStatusRefresh');
+  const refreshButton = page.querySelector('#operationsStatusRefresh');
   const fail = error => {
     if (!active) return;
     if (error.code === 'unauthorized') { onUnauthorized(); return; }
@@ -73,7 +74,7 @@ export function mountOperations(page, { api, onUnauthorized }) {
       if (value.queries.some(query => query.type === previous)) select.value = previous;
       select.disabled = false; submit.disabled = false;
       page.querySelector('#operationsScheduleState').textContent = value.schedule?.enabled
-        ? 'Zamanlama hazır. Kaynak bağlantıları tamamlanınca veri taraması yapılır.' : 'Tarama planı hazır; zamanlayıcı etkinleştirmesi bekleniyor.';
+        ? 'Tarayıcı görevi etkin. Veriler son tarama zamanı ve kapsamıyla burada görünür.' : 'Tarayıcı görevinin zamanlaması henüz etkin değil.';
       const shortcuts = page.querySelector('#operationsShortcuts'); shortcuts.replaceChildren();
       for (const type of ['overdue', 'absence', 'homework', 'overdue_absence']) {
         const choice = value.queries.find(query => query.type === type); if (!choice) continue;
@@ -114,19 +115,6 @@ export function mountOperations(page, { api, onUnauthorized }) {
       showSources(merged);
     } catch (error) { fail(error); }
     finally { busy = false; if (active) submit.disabled = false; }
-  };
-  scanButton.onclick = async () => {
-    if (busy) return; busy = true; scanButton.disabled = true; scanButton.textContent = 'Taranıyor…';
-    try {
-      const value = await api('/api/admin/operations', { method: 'POST', body: JSON.stringify({ action: 'refresh' }) });
-      if (!active) return;
-      result.replaceChildren(node('p', value.state === 'waiting_for_connections'
-        ? 'Tarama başlatılamadı: CRM ve kurs veri bağlantıları henüz tanımlanmadı.'
-        : value.state === 'complete' ? 'Tarama tamamlandı. Güncel sonuç için sorgunuzu yeniden çalıştırın.'
-          : 'Tarama tam olarak tamamlanamadı. Kaynak durumlarını kontrol edin.', 'muted-note'));
-      await loadStatus();
-    } catch (error) { fail(error); }
-    finally { busy = false; if (active) { scanButton.disabled = false; scanButton.textContent = 'Şimdi tara'; } }
   };
   refreshButton.onclick = loadStatus;
   void loadStatus();

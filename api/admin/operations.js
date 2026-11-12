@@ -10,7 +10,7 @@ export default async function handler(req, res) {
   if (!requireAdmin(req, res)) return;
   if (req.method === 'GET') {
     res.status(200).json({ mode: 'read_only', sources: publicSources(await loadSnapshots()),
-      schedule: { ...scanSchedule, enabled: Boolean(process.env.CRON_SECRET) },
+      schedule: { ...scanSchedule, enabled: process.env.ARYA_TINYFISH_SCHEDULE_ENABLED === '1' },
       queries: Object.entries(queries).map(([type, q]) => ({ type, label: q.label, sources: q.sources })) });
     return;
   }

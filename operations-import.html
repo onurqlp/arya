@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#10151d">
+<title>Arya — Kurum verisi aktarımı</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;background:#0d1219;color:#edf3f8}
+*{box-sizing:border-box}body{margin:0;padding:clamp(18px,5vw,56px);background:radial-gradient(900px 520px at 95% -5%,#1c3440 0%,transparent 63%),#0d1219}
+main{max-width:850px;margin:auto}.card{background:linear-gradient(155deg,#18212c,#141b24);border:1px solid #273343;border-radius:16px;padding:clamp(20px,4vw,34px);box-shadow:0 10px 26px #0002}
+.eyebrow{color:#61e2bb;font-weight:800;letter-spacing:1px;text-transform:uppercase;font-size:11px}h1{font-size:clamp(25px,4vw,34px);margin:7px 0}p{color:#a6b5c4;line-height:1.65}.note{border:1px solid #384452;background:#171f29;border-radius:12px;padding:12px;font-size:13px}
+label{display:block;font-weight:700;margin:18px 0 7px}select,textarea{width:100%;border:1px solid #3a495a;border-radius:11px;background:#101822;color:#edf3f8;padding:12px;font:inherit}textarea{min-height:300px;resize:vertical;font:13px ui-monospace,SFMono-Regular,Consolas,monospace}
+button{margin-top:14px;border:0;border-radius:10px;background:#61e2bb;color:#08251e;font-weight:800;padding:11px 16px;cursor:pointer}button:disabled{opacity:.55;cursor:wait}.status{min-height:24px;margin-top:14px;font-size:14px;color:#a6b5c4}.error{color:#ffb4b4}a{color:#61e2bb}
+</style>
+</head>
+<body>
+<main>
+<section class="card">
+<div class="eyebrow">Arya · yönetici aracı</div>
+<h1>Kurum verisi aktarımı</h1>
+<p>Bu sayfa CRM veya kurs panelinden tarayıcıyla alınan ve doğrulanan güncel anlık görüntüyü Arya'nın ayrı Kurum Takip deposuna kaydeder. Yalnızca gerekli öğrenci adı/kimliği, grup ilişkisi, ödeme, yoklama ve ödev durumları saklanır. Telefon, e-posta, mesaj ve not alanları kabul edilen şemada yoktur.</p>
+<p class="note">Yalnızca Arya yöneticisi aktarım yapabilir. Kaynak panelde değişiklik veya WhatsApp gönderimi yapılmaz. Her yükleme önce şema ve tarih kapsamı kontrolünden geçer; geçersiz veya eski veri kaydedilmez.</p>
+<div id="session" class="status" role="status">Arya yönetici oturumu kontrol ediliyor…</div>
+<form id="importForm" hidden>
+<label for="kind">Kaynak</label>
+<select id="kind" required><option value="crm">CRM</option><option value="course">Kurs paneli</option></select>
+<label for="snapshot">Doğrulanmış JSON anlık görüntüsü</label>
+<textarea id="snapshot" spellcheck="false" required placeholder="Tam JSON verisini buraya aktarın"></textarea>
+<button id="submit" type="submit">Arya'ya kaydet</button>
+</form>
+<p class="status" id="result" role="status" aria-live="polite"></p>
+<p><a href="/#kurum-takip">Kurum Takip'e dön ↗</a></p>
+</section>
+</main>
+<script type="module">
+const status=document.querySelector('#session'),form=document.querySelector('#importForm'),input=document.querySelector('#snapshot'),button=document.querySelector('#submit'),result=document.querySelector('#result');
+try{
+  const response=await fetch('/api/admin/session',{cache:'no-store',credentials:'same-origin'});
+  const session=await response.json();
+  if(!response.ok||!session.authenticated){status.textContent='Aktarım için Arya yönetici oturumu gerekli.';status.classList.add('error');}
+  else{status.textContent='Arya yönetici oturumu doğrulandı.';form.hidden=false;}
+}catch{status.textContent='Oturum kontrolü yapılamadı. Arya panelinde giriş yapıp sayfayı yenileyin.';status.classList.add('error');}
+form.onsubmit=async event=>{
+  event.preventDefault();button.disabled=true;result.classList.remove('error');result.textContent='Şema ve tarih kapsamı doğrulanıyor…';
+  try{
+    const snapshot=JSON.parse(input.value);
+    const response=await fetch('/api/admin/operations-import',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:document.querySelector('#kind').value,snapshot})});
+    const data=await response.json();
+    if(!response.ok){const messages={unauthorized:'Yönetici oturumunun süresi dolmuş.',invalid_snapshot:'Veri şeması geçersiz; kayıt yapılmadı.',stale_snapshot:'Veri bugünün kapsamını taşımıyor; kayıt yapılmadı.',storage_unavailable:'Arya deposuna ulaşılamadı.'};throw new Error(messages[data.error]||'Aktarım başarısız oldu.');}
+    input.value='';
+    if(data.kind==='crm') result.textContent='CRM kaydedildi · '+data.counts.students+' öğrenci · '+data.counts.groups+' grup · '+data.counts.payments+' ödeme · '+data.coverage.from+'–'+data.coverage.to;
+    else result.textContent='Kurs paneli kaydedildi · '+data.counts.students+' öğrenci · '+data.counts.groups+' grup · '+data.counts.attendance+' yoklama · '+data.counts.homework+' ödev · '+data.coverage.from+'–'+data.coverage.to;
+  }catch(error){result.textContent=error.message==='Unexpected end of JSON input'?'JSON okunamadı; tam veri aktarımını kontrol edin.':error.message==='Unexpected token'?'JSON biçimi geçersiz; aktarılmadı.':error.message;result.classList.add('error');}
+  finally{button.disabled=false;}
+};
+</script>
+</body>
+</html>
