@@ -42,6 +42,8 @@ Vercel projesinin Settings → Environment Variables bölümüne aşağıdaki de
 - ARYA_OWNER_NOTIFICATION_TEMPLATE: Meta'da onaylanmış bildirim şablonu adı. İşletme numarasına son 24 saatte yazmamış sahibine bildirim için gerekir.
 - ARYA_OWNER_NOTIFICATION_LANG: Şablon dili, varsayılan `tr`.
 
+İlk uçtan uca testten önce `ARYA_OWNER_WA_IDS` değerini kaydedip Production'ı deploy edin. Sonra iki sahip de işletme WhatsApp numarasına özelden bir mesaj göndersin; bu, her sahip için 24 saatlik yanıt penceresini açar ve sahip mesajları müşteri kuyruğuna girmez. Bu pencere dışında bildirim göndermek için Meta'da onaylı şablon gerekir.
+
 Önerilen Meta şablonu: `arya_owner_review_request`, Türkçe. Gövde metni: `Yeni müşteri mesajı: {{1}}. Taslak kodu: {{2}}. Görmek için TASLAK {{2}}, göndermek için ONAY {{2}}, reddetmek için RED {{2}} yazın.` Meta'nın istediği örnek değişken değerlerini sağlayıp şablon onayını bekleyin.
 
 Önce yalnızca DATABASE_URL, ARYA_ADMIN_PASSWORD ve ARYA_SESSION_SECRET eklenip yeniden deploy edilmelidir. Ardından Arya panelinde yönetici oturumu açılabilir. Meta bağlanmadan önce panelde hiç gerçek mesaj bulunmaz; örnek veri gösterilmez.
