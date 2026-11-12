@@ -195,6 +195,7 @@ function reports() {
 }
 function setup() {
   const c = health.configured || {};
+  const assetAccessDenied = health.metaSubscription?.metaCode === 100 && health.metaSubscription?.metaSubcode === 33;
   const rows = [["Neon veritabanı", health.databaseReady], ["Yönetici erişimi", health.adminReady],
     ["OpenAI anahtarı ve model", c.openAI], ["Meta webhook adresi", health.webhookEndpointReady],
     ["AYDA WP1 webhook aboneliği", health.webhookSubscriptionReady],
@@ -206,7 +207,9 @@ function setup() {
     '</section><section class="card" style="margin-top:15px"><h2>Meta abonelik kontrolü</h2><p>Durum: ' +
     esc(health.metaSubscription?.state || "bilinmiyor") +
     (health.metaSubscription?.metaCode ? ' · Meta kodu: ' + esc(health.metaSubscription.metaCode) : '') +
-    '</p>' + (!health.webhookSubscriptionReady && c.metaSend ?
+    '</p>' + (assetAccessDenied ?
+      '<p class="warning">Bu jeton AYDA WP1 hesabını ve kayıtlı telefonu okuyamıyor. META_ACCESS_TOKEN değerini doğru sistem kullanıcısının WhatsApp varlık erişimiyle yeniden oluşturun.</p>' :
+      !health.webhookSubscriptionReady && c.metaSend ?
       button("AYDA WP1 hesabını bağla", 'data-subscribe', "primary") : '') +
     '</section><section class="card" style="margin-top:15px"><h2>Çalışma akışı</h2><p>Meta bağlantısı kurulunca imzalı yeni mesajlar kaydedilir. OpenAI bağlantısı eklenince yalnızca yönetici tarafından seçilen mesajlar analiz edilir. Taslak onayı kayıt durumunu değiştirir; gönderim açılana kadar WhatsApp’a yanıt gitmez.</p></section>';
 }
