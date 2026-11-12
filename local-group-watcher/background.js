@@ -124,7 +124,7 @@ async function flushQueue() {
         break;
       }
       const groupName = queue[0].groupName;
-      const batch = queue.filter((item) => item.groupName === groupName).slice(0, 20);
+      const batch = queue.filter((item) => item.groupName === groupName).slice(0, 10);
       const payload = {
         source: SOURCE,
         groupName,
