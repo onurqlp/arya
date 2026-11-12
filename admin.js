@@ -1,8 +1,9 @@
 const page = document.getElementById("page");
-const state = { route: "overview", conversation: null, approvalStatus: "pending", search: "", request: 0 };
+const state = { route: location.hash === "#kurum-takip" ? "operations" : "overview", conversation: null, approvalStatus: "pending", search: "", request: 0 };
 let session = { authenticated: false, setup: {} };
 let health = {};
 let summary = null;
+let operationsCleanup = null;
 
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
 const date = (value) => value ? new Date(value).toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" }) : "";
@@ -44,13 +45,15 @@ function navigate(route, conversation = null) {
   state.route = route;
   state.conversation = conversation;
   state.search = "";
+  if (route === "operations") history.replaceState(null, "", "#kurum-takip");
+  else if (location.hash === "#kurum-takip") history.replaceState(null, "", location.pathname + location.search);
   document.getElementById("sidebar").classList.remove("open");
   window.scrollTo(0, 0);
   render();
 }
 function setNavigation() {
   const labels = { overview: "Genel Bakış", conversations: "Konuşmalar", approvals: "Ekibe Danışma",
-    insights: "Analiz ve Bulgular", reports: "Raporlar", setup: "Ajan ve Bağlantılar" };
+    insights: "Analiz ve Bulgular", reports: "Raporlar", operations: "Kurum Takip", setup: "Ajan ve Bağlantılar" };
   document.getElementById("crumb").textContent = labels[state.route] || "Konuşma";
   document.querySelectorAll("#nav button, .nav button").forEach((node) =>
     node.classList.toggle("active", node.dataset.page === state.route));
@@ -266,15 +269,31 @@ function bindActions() {
   });
 }
 async function render() {
+  if (operationsCleanup) { operationsCleanup(); operationsCleanup = null; }
   const request = ++state.request;
   setNavigation();
   page.innerHTML = '<section class="card">Yükleniyor…</section>';
-  try { await load(); } catch (error) {
+  try {
+    if (state.route === "operations") {
+      session = await api("/api/admin/session");
+      document.getElementById("logoutBtn").hidden = !session.authenticated;
+      document.getElementById("connectionPill").textContent = "Kurum takibi · yalnızca okuma";
+      document.getElementById("connectionNote").textContent = "CRM ve kurs taramaları bu sekmeden takip edilir. Mesajlaşma bağlantısı ayrı çalışır.";
+    } else await load();
+  } catch (error) {
     if (request === state.request) page.innerHTML = '<div class="warning">' + esc(errorText(error.code)) + '</div>';
     return;
   }
   if (request !== state.request) return;
   if (!session.authenticated) { login(); return; }
+  if (state.route === "operations") {
+    try {
+      const module = await import("/operations-ui.js?v=20261112");
+      if (request !== state.request) return;
+      operationsCleanup = module.mountOperations(page, { api, onUnauthorized: () => render() });
+    } catch { if (request === state.request) page.innerHTML = '<div class="warning">Kurum Takip yüklenemedi. Sayfayı yenileyin.</div>'; }
+    return;
+  }
   page.innerHTML = ({
     overview, conversations: conversationPage, approvals: approvalsPage,
     insights, reports, setup

@@ -1,5 +1,14 @@
 # Arya — WhatsApp Operasyon Ajanı
 
+## Kurum Takip — 12 Kasım 2026
+
+- Aynı sitede yöneticiye özel **Kurum Takip** sekmesi: `/#kurum-takip`.
+- Ödeme, devamsızlık, ödev, grup/öğrenci özeti ve ödeme-devamsızlık kesişimi için ayrı okuma altyapısı.
+- Günde üç tarama planı: Türkiye saatiyle 09.00, 14.00, 19.00; ayrıca **Şimdi tara**. Sorgular son taramayı kullanır.
+- **Gerçek CRM/kurs bağlantıları henüz tanımlanmadı.** Sekme bu durumu açıkça gösterir; test verileri üretimde gösterilmez.
+- Kaynak/API erişimi tamamlanınca yalnızca gerekli alanlar ayrı snapshot tablosunda tutulur; mevcut WhatsApp mesajları, onayları ve gönderim akışı değiştirilmez.
+- Kurulum ve veri sözleşmesi: [docs/operations-api.md](docs/operations-api.md). Kontroller: `npm ci && npm test`.
+
 Arya; WhatsApp konuşmalarını kaydetmek, seçilen mesajlardan özet ve yanıt taslağı üretmek ve her taslağı ekip onayına sunmak için hazırlanıyor.
 
 ## Mevcut durum

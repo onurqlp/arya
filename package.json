@@ -4,7 +4,11 @@
   "private": true,
   "type": "module",
   "description": "Arya WhatsApp operations dashboard with secure admin review workflow",
+  "scripts": { "test": "node --test" },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0"
+  },
+  "devDependencies": {
+    "jsdom": "^31.0.0"
   }
 }
