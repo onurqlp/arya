@@ -19,6 +19,7 @@ const errorText = (code) => ({
   meta_send_not_configured: "Meta mesaj gönderim bilgileri henüz eklenmedi.",
   individual_conversation_required: "Yalnızca doğrulanmış bireysel sohbetlere gönderim destekleniyor.",
   meta_send_rejected: "Meta gönderimi reddetti. Numaranın izinlerini ve 24 saatlik mesajlaşma penceresini kontrol edin.",
+  meta_subscription_failed: "Meta aboneliği tamamlanamadı. Aşağıdaki durum kodunu kontrol edin.",
   meta_delivery_uncertain: "Meta yanıtı belirsiz. Tekrar göndermeden önce Meta'da teslim durumunu kontrol edin.",
   unauthorized: "Oturum sona erdi. Yeniden giriş yapın.",
   messages_must_share_conversation: "Aynı konuşmanın mesajlarını seçin.",
@@ -55,12 +56,13 @@ function setNavigation() {
     node.classList.toggle("active", node.dataset.page === state.route));
 }
 function connection() {
-  const db = Boolean(health.databaseReady), meta = Boolean(health.configured?.metaWebhook);
+  const db = Boolean(health.databaseReady), meta = Boolean(health.webhookSubscriptionReady);
+  const endpoint = Boolean(health.webhookEndpointReady);
   const ai = Boolean(health.configured?.openAI);
   document.getElementById("connectionPill").innerHTML = '<i class="dot"></i> ' +
-    (meta ? "Webhook hazır" : db ? "Veritabanı hazır · WhatsApp bekleniyor" : "Kurulum bekleniyor");
+    (meta ? "WhatsApp bağlantısı hazır" : endpoint ? "Meta aboneliği bekleniyor" : db ? "Veritabanı hazır · WhatsApp bekleniyor" : "Kurulum bekleniyor");
   document.getElementById("connectionNote").innerHTML = '<strong>● Gerçek veri alanı</strong>' +
-    (meta ? "Meta bağlantısı hazır." : "WhatsApp bağlantısı bekleniyor.") + "<br>" +
+    (meta ? "Meta hesabı abone." : endpoint ? "Webhook adresi hazır; AYDA WP1 aboneliği doğrulanmadı." : "WhatsApp bağlantısı bekleniyor.") + "<br>" +
     (ai ? "OpenAI taslak üretimi hazır." : "OpenAI bağlantısı bekleniyor.");
   document.getElementById("logoutBtn").hidden = !session.authenticated;
 }
@@ -194,12 +196,18 @@ function reports() {
 function setup() {
   const c = health.configured || {};
   const rows = [["Neon veritabanı", health.databaseReady], ["Yönetici erişimi", health.adminReady],
-    ["OpenAI anahtarı ve model", c.openAI], ["Meta webhook", c.metaWebhook],
+    ["OpenAI anahtarı ve model", c.openAI], ["Meta webhook adresi", health.webhookEndpointReady],
+    ["AYDA WP1 webhook aboneliği", health.webhookSubscriptionReady],
     ["WhatsApp mesaj gönderimi", health.outboundSending]];
   return title("Ajan ve Bağlantılar", "Sunucu yapılandırmasının gerçek durumu. Anahtarlar burada gösterilmez.") +
     '<section class="card">' + rows.map(([label, ready]) =>
       '<div class="setting"><strong>' + esc(label) + '</strong><span class="tag ' +
       (ready ? "green" : "yellow") + '">' + (ready ? "Hazır" : "Bekleniyor") + '</span></div>').join("") +
+    '</section><section class="card" style="margin-top:15px"><h2>Meta abonelik kontrolü</h2><p>Durum: ' +
+    esc(health.metaSubscription?.state || "bilinmiyor") +
+    (health.metaSubscription?.metaCode ? ' · Meta kodu: ' + esc(health.metaSubscription.metaCode) : '') +
+    '</p>' + (!health.webhookSubscriptionReady && c.metaSend ?
+      button("AYDA WP1 hesabını bağla", 'data-subscribe', "primary") : '') +
     '</section><section class="card" style="margin-top:15px"><h2>Çalışma akışı</h2><p>Meta bağlantısı kurulunca imzalı yeni mesajlar kaydedilir. OpenAI bağlantısı eklenince yalnızca yönetici tarafından seçilen mesajlar analiz edilir. Taslak onayı kayıt durumunu değiştirir; gönderim açılana kadar WhatsApp’a yanıt gitmez.</p></section>';
 }
 function bindActions() {
@@ -207,6 +215,14 @@ function bindActions() {
   document.querySelectorAll("[data-conversation]").forEach((element) => element.onclick = () =>
     navigate("conversations", element.dataset.conversation));
   document.querySelectorAll("[data-refresh]").forEach((element) => element.onclick = render);
+  const subscribe = document.querySelector("[data-subscribe]");
+  if (subscribe) subscribe.onclick = async () => {
+    subscribe.disabled = true;
+    try {
+      await api("/api/meta-subscription", { method: "POST", body: "{}" });
+      await render(); notice("Meta aboneliği doğrulandı.");
+    } catch (error) { await render(); notice(errorText(error.code)); }
+  };
   document.querySelectorAll("[data-status]").forEach((element) => element.onclick = () => {
     state.approvalStatus = element.dataset.status; render();
   });
