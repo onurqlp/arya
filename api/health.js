@@ -53,6 +53,6 @@ export default async function handler(_req, res) {
     messageStorage: databaseReady && adminReady,
     outboundSending: databaseReady && adminReady && configured.metaSend && !assetAccessDenied,
     ownerMessaging,
-    note: "Incoming messages need both the verified callback and a WABA subscription. Each individual customer message is reviewed into a draft; only an allowlisted owner approval can send it."
+    note: "Incoming individual messages need both the verified callback and a WABA subscription. Asya-style replies grounded in current verified information are sent automatically. Uncertain or human-decision cases are privately escalated to allowlisted owners; the customer gets no handoff message, and an owner can send the exact answer with CEVAP CODE: answer. WhatsApp customer-service window rules still apply."
   });
 }
