@@ -9,7 +9,7 @@
 - Kaynak/API erişimi tamamlanınca yalnızca gerekli alanlar ayrı snapshot tablosunda tutulur; mevcut WhatsApp mesajları, onayları ve gönderim akışı değiştirilmez.
 - Kurulum ve veri sözleşmesi: [docs/operations-api.md](docs/operations-api.md). Kontroller: `npm ci && npm test`.
 
-Arya; bireysel WhatsApp mesajlarını kaydeder, Asya'nın güncel yanıt modeli ve bilgi tabanının bir anlık görüntüsüyle yanıt taslağı hazırlar ve müşteriye göndermeden önce iki işletme sahibine özel mesajla onaylatır.
+Arya, AYDA'nın bireysel WhatsApp müşteri temsilcisidir. Asya'nın yanıt kuralları, modeli ve bilgi tabanı anlık görüntüsünü kullanır. Güncel ve doğrulanmış bilgiyle güvenle cevaplanabilen mesajlara doğrudan yanıt verir; ekip bilgisi veya insan kararı gereken konuyu Onur ile Esra'ya özel sorar ve ekip cevabını müşteriye iletir.
 
 ## Mevcut durum
 
@@ -18,11 +18,13 @@ Arya; bireysel WhatsApp mesajlarını kaydeder, Asya'nın güncel yanıt modeli 
 - Neon Postgres bağlantısı geldiğinde tablolar API tarafından otomatik kurulur.
 - Meta webhook imzası doğrulanır; yeni mesajlar tekil Meta mesaj kimliğiyle saklanır. Yinelenen webhook mesajları yeniden eklenmez.
 - Mesaj ve taslak verileri varsayılan olarak 90 gün sonra temizlenir; bu temizlik gelen webhook veya yönetici listeleme isteğinde çalışır. Denetim kayıtları 365 gün tutulur.
-- Yeni bireysel müşteri mesajı geldiğinde webhook kaydı yapar, son 10 mesajı OpenAI Responses API'ye `store=false` ile gönderip Asya tarzında özet ve yanıt taslağı oluşturur.
-- Taslak müşteriye otomatik gönderilmez. Ayarlanmış sahip numaralarına özel WhatsApp onayı gider; `TASLAK KOD` taslağı gösterir, `ONAY KOD` gönderir, `RED KOD` reddeder, `DURUM` bekleyenleri listeler.
-- Sahibin WhatsApp mesajları müşteri konuşma kayıtlarına karışmaz. Onay yalnızca izin listesindeki iki numaradan kabul edilir; ilk geçerli onay/ret işlemi kazanır.
-- Müşteriye yanıt, müşterinin son mesajından sonraki 24 saat içinde gönderilir. Süre dolmuşsa Arya göndermeyi durdurur; müşteri yeniden yazınca onay komutu tekrar kullanılabilir.
-- Sahiplerden son 24 saatte işletme numarasına mesaj gelmemişse bildirim göndermek için Meta tarafından onaylanmış bir WhatsApp şablonu gerekir. Vercel sağlık ekranı yalnızca şablon adının girilip girilmediğini kontrol eder; Meta'daki onay durumunu doğrulamaz. Şablon yoksa bildirim gönderilmez; taslak panelde onay kuyruğunda kalır.
+- Yeni bireysel müşteri mesajı geldiğinde webhook kaydı yapar, son 10 mesajı OpenAI Responses API'ye `store=false` ile gönderip Asya'nın yanıt kuralları ve AYDA bilgi tabanıyla yanıt üretir.
+- Yanıt güncel, doğrulanmış bilgiye dayanıyorsa WhatsApp üzerinden müşteriye otomatik gönderilir. Risk veya eksik teyit varsa müşteriye bekletme/ekibe sorma mesajı gönderilmez; müşteri sorusu, özeti ve önerilen taslak sahiplerin özel WhatsApp'ına gider.
+- Sahipler `CEVAP KOD: müşteriye gönderilecek yanıt` yazarak kendi yanıtlarını müşteriye aynen iletir. `TASLAK KOD` içeriği gösterir, `RED KOD` konuyu kapatır, `DURUM` bekleyenleri listeler. İnsan yanıtı zorunlu işaretli kayıtta yapay zekâ taslağı `ONAY` komutuyla gönderilemez.
+- Asya yanıtı gönderilemezse, güvenli biçimde Meta tarafından reddedildiğinde konu sahiplere iletilir. Meta teslim sonucu belirsizse çift mesajı önlemek için tekrar gönderim yapılmaz.
+- Sahiplerin özel WhatsApp mesajları müşteri konuşma kayıtlarına karışmaz. `CEVAP` ve diğer komutlar yalnızca izin listesindeki iki numaradan kabul edilir.
+- Müşteriye yanıt, müşterinin son mesajından sonraki 24 saat içinde gönderilir. Süre dolmuşsa Arya göndermeyi durdurur; müşteri yeniden yazınca ekip cevabı tekrar iletilebilir.
+- Her iki sahibin de işletme numarasına ilk kez özelden mesaj göndermesi gerekir. Son 24 saatte işletme numarasına mesaj gelmemişse bildirim için Meta tarafından onaylanmış WhatsApp şablonu gerekir. Vercel sağlık ekranı yalnızca şablon adının girilip girilmediğini kontrol eder; Meta'daki onay durumunu doğrulamaz. Şablon yoksa bildirim gönderilmez; konu yönetim panelindeki ekip kuyruğunda kalır.
 - Grup API'si mevcut WhatsApp gruplarına katılma veya okuma yolu değildir; bu akış bireysel sohbetlerle çalışır.
 
 ## Kurulum
@@ -38,13 +40,13 @@ Vercel projesinin Settings → Environment Variables bölümüne aşağıdaki de
 - META_APP_SECRET: Meta uygulama gizli değeri; yalnızca sunucu ortamında.
 - META_WEBHOOK_VERIFY_TOKEN: Senin belirleyeceğin uzun, rastgele webhook doğrulama değeri.
 - META_ACCESS_TOKEN, META_PHONE_NUMBER_ID, META_GRAPH_API_VERSION: Onaylı bireysel yanıtları iletmek için. Sürüm örneğin v23.0 biçiminde olmalıdır.
-- ARYA_OWNER_WA_IDS: Sen ve Esra'nın WhatsApp numaraları, ülke koduyla ve yalnız rakamla; virgülle ayrılmış. Bunlar özel onay alıcıları ve izin listesidir.
+- ARYA_OWNER_WA_IDS: Onur ve Esra'nın WhatsApp numaraları, ülke koduyla ve yalnız rakamla; virgülle ayrılmış. Bunlar özel bildirim alıcıları ve komut izin listesidir.
 - ARYA_OWNER_NOTIFICATION_TEMPLATE: Meta'da onaylanmış bildirim şablonu adı. İşletme numarasına son 24 saatte yazmamış sahibine bildirim için gerekir.
 - ARYA_OWNER_NOTIFICATION_LANG: Şablon dili, varsayılan `tr`.
 
 İlk uçtan uca testten önce `ARYA_OWNER_WA_IDS` değerini kaydedip Production'ı deploy edin. Sonra iki sahip de işletme WhatsApp numarasına özelden bir mesaj göndersin; bu, her sahip için 24 saatlik yanıt penceresini açar ve sahip mesajları müşteri kuyruğuna girmez. Bu pencere dışında bildirim göndermek için Meta'da onaylı şablon gerekir.
 
-Önerilen Meta şablonu: `arya_owner_review_request`, Türkçe. Gövde metni: `Yeni müşteri mesajı: {{1}}. Taslak kodu: {{2}}. Görmek için TASLAK {{2}}, göndermek için ONAY {{2}}, reddetmek için RED {{2}} yazın.` Meta'nın istediği örnek değişken değerlerini sağlayıp şablon onayını bekleyin.
+Önerilen Meta şablonu: `arya_owner_review_request`, Türkçe. Gövde metni: `Yeni müşteri mesajı: {{1}}. Konu kodu: {{2}}. Taslağı görmek için TASLAK {{2}}. Müşteriye yanıt vermek için CEVAP {{2}}: yanıtınız yazın. Reddetmek için RED {{2}} yazın.` Meta'nın istediği örnek değişken değerlerini sağlayıp şablon onayını bekleyin.
 
 Önce yalnızca DATABASE_URL, ARYA_ADMIN_PASSWORD ve ARYA_SESSION_SECRET eklenip yeniden deploy edilmelidir. Ardından Arya panelinde yönetici oturumu açılabilir. Meta bağlanmadan önce panelde hiç gerçek mesaj bulunmaz; örnek veri gösterilmez.
 
@@ -54,8 +56,8 @@ Vercel projesinin Settings → Environment Variables bölümüne aşağıdaki de
 2. Mesaj metni ve gerekli mesaj kimlikleri saklanır; ham webhook gövdesi saklanmaz.
 3. Yönetici mesajları Canlı Gelenler bölümünde görür.
 4. İzin listesindeki sahip mesajıysa müşteri kuyruğuna eklenmez; `DURUM`, `TASLAK`, `ONAY` veya `RED` komutu işlenir.
-5. Yeni bireysel müşteri mesajı Asya bilgi tabanı ve model ayarlarıyla incelenir; sonuç onay kuyruğuna eklenir ve sahiplerine bildirilir.
-6. `TASLAK KOD` önerilen yanıtı gösterir. `ONAY KOD` yalnızca onaylı taslağı müşteriye gönderir; `RED KOD` reddeder. Onay tek başına başka hiçbir eylemi tetiklemez.
+5. Yeni bireysel müşteri mesajı Asya bilgi tabanı ve model ayarlarıyla değerlendirilir. Güvenli yanıt müşteriye otomatik gider; riskli/bilinmeyen konu sahiplerine özel bildirilir ve müşteriye bir şey gönderilmez.
+6. `TASLAK KOD` konu özetini ve önerilen metni gösterir. Sahip `CEVAP KOD: yanıtınız` ile kendi cevabını müşteriye yollar. İnsan yanıtı gereken kayıtta `ONAY` engellenir; `RED KOD` konuyu reddeder.
 7. Mesaj gönderimi Meta'nın 24 saatlik müşteri hizmeti penceresi içinde yapılır. Belirsiz teslim durumunda otomatik tekrar yapılmaz.
 
 ## Güvenlik sınırları
@@ -82,9 +84,10 @@ Vercel projesinin Settings → Environment Variables bölümüne aşağıdaki de
 
 ## Sahiplerin WhatsApp komutları
 
-- `DURUM`: Onay bekleyen kodları listeler.
-- `TASLAK 1234ABCD`: Özet ve müşteriye önerilen yanıtı gösterir.
-- `ONAY 1234ABCD`: Onaylar ve 24 saatlik müşteri yanıt penceresi açıksa gönderir.
+- `DURUM`: Ekip yanıtı bekleyen kodları listeler.
+- `TASLAK 1234ABCD`: Müşteri sorusunu, özeti ve önerilen yanıtı gösterir.
+- `CEVAP 1234ABCD: Yanıtınız`: Yazdığınız metni müşteriye iletir.
+- `ONAY 1234ABCD`: Yalnızca insan yanıtı gerektirmeyen onaylı taslağı gönderir.
 - `RED 1234ABCD`: Taslağı reddeder; müşteriye mesaj göndermez.
 - `YARDIM`: Komutları gösterir.
 
