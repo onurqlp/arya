@@ -1,6 +1,6 @@
 # Arya local group preview pilot
 
-This pilot reads only the visible latest-message preview for exact group names allowlisted in the browser extension. It does not open chats, click controls, send group messages, read media, or fetch chat history. It can miss messages when multiple messages arrive before the sidebar preview updates. WhatsApp Web UI changes can also break selectors.
+This pilot reads only the visible latest-message preview for exact group names allowlisted in both the browser extension and Arya server. It does not open chats, click controls, send group messages, read media, or fetch chat history. It only sees rows currently rendered in the sidebar; pinned or visible watched groups are easiest to monitor. It can miss messages when multiple messages arrive before the sidebar preview updates. WhatsApp Web UI changes can also break selectors.
 
 ## Server environment
 
@@ -8,7 +8,7 @@ Set these Vercel Production variables before deploying the endpoint:
 
 - ARYA_LOCAL_GROUP_INGEST_SECRET: a random secret with at least 32 characters. Keep it out of GitHub and the browser source files.
 - ARYA_LOCAL_GROUP_ALLOWLIST: a JSON array of exact WhatsApp group names, for example ["AYDA A1","AYDA B1"].
-- ARYA_LOCAL_GROUP_NOTIFY_TO: optional comma-separated E.164 digits, for example 905XXXXXXXXX,905YYYYYYYYY. For each recipient, Arya sends one WhatsApp alert only if that person has messaged the Arya number within the last 24 hours. Outside that window, it stores the group preview in the panel but sends no proactive free-form WhatsApp message. Approved templates are not implemented by this pilot.
+- ARYA_LOCAL_GROUP_NOTIFY_TO: optional comma-separated E.164 digits. For each recipient, Arya sends a WhatsApp alert only if that person messaged the Arya number within the last 24 hours. Alerts are throttled to one per group per recipient every five minutes. Outside that window, it stores the preview in the panel but sends no proactive free-form WhatsApp message. Approved templates are not implemented by this pilot.
 
 Existing WhatsApp API variables are reused for optional private alerts. No group-send route is added. The existing individual-send validation rejects these local group records.
 
