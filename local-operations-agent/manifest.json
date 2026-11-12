@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Arya Kurum Ajanı",
+  "version": "1.0.0",
+  "description": "CRM ve kurs panellerinden oturum açılmış tarayıcıda salt okunur veri alır ve Arya Kurum Takip'e aktarır.",
+  "permissions": ["alarms", "storage", "tabs", "scripting"],
+  "host_permissions": [
+    "https://crm.aydadil.com/*",
+    "https://kurs.aydadil.com/*",
+    "https://arya-whatsapp-panel.vercel.app/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "action": {
+    "default_title": "Arya Kurum Ajanı",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://crm.aydadil.com/*", "https://kurs.aydadil.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://arya-whatsapp-panel.vercel.app/operations-import.html*"],
+      "js": ["arya-bridge.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

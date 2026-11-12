@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#10151d"><title>Arya Kurum Ajanı · Kurulum</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;background:#0d1219;color:#edf3f8}*{box-sizing:border-box}body{margin:0;padding:clamp(18px,5vw,56px);background:radial-gradient(900px 520px at 95% -5%,#1c3440 0%,transparent 63%),#0d1219}main{max-width:800px;margin:auto}.card{background:linear-gradient(155deg,#18212c,#141b24);border:1px solid #273343;border-radius:16px;padding:clamp(20px,4vw,34px);box-shadow:0 10px 26px #0002}.eyebrow{color:#61e2bb;font-weight:800;letter-spacing:1px;text-transform:uppercase;font-size:11px}h1{font-size:clamp(26px,4vw,36px);margin:7px 0}h2{font-size:18px;margin:26px 0 8px}p,li{color:#adbac7;line-height:1.7}.note{border:1px solid #385248;background:#17251f;border-radius:12px;padding:14px}.warn{border:1px solid #665333;background:#28231a;border-radius:12px;padding:14px}.button{display:inline-block;margin:10px 0;padding:12px 16px;border-radius:10px;background:#61e2bb;color:#08251e;font-weight:800;text-decoration:none}a{color:#70e4c3}code{background:#101822;border:1px solid #2a3949;padding:2px 5px;border-radius:5px;color:#dce9f4}ol{padding-left:22px}.small{font-size:13px;color:#8f9eac}
+</style>
+</head>
+<body><main><section class="card">
+<div class="eyebrow">Arya · bilgisayarda çalışan yerel ajan</div>
+<h1>CRM ve kurs panelini Arya Kurum Takip’e bağla</h1>
+<p>Bu eklenti senin bilgisayarındaki Chrome/Edge oturumunu kullanır. CRM ve kurs panellerine yeniden parola girmez; Arya’ya yalnızca sen aktar düğmesine bastığında doğrulanmış özet veriyi yollar.</p>
+<p class="note"><strong>Okuma sınırı:</strong> CRM/kurs ekranlarını okur. Kayıt düzenlemez, form göndermez, WhatsApp mesajı atmaz ve Meta API kullanmaz. Öğrenci ve ödeme verisini GPT’ye göndermez.</p>
+
+<h2>Windows’ta kurulum</h2>
+<ol>
+<li>Aşağıdaki ZIP’i indirip bilgisayarında çıkar.</li>
+<li>Chrome kullanıyorsan <code>chrome://extensions</code>, Edge kullanıyorsan <code>edge://extensions</code> adresini aç.</li>
+<li><strong>Geliştirici modu</strong>nu aç, <strong>Paketlenmemiş öğe yükle</strong>ye bas. Çıkardığın klasördeki <code>local-operations-agent</code> klasörünü seç.</li>
+<li>Aynı Chrome/Edge profilinde CRM ve kurs paneline giriş yap. Arya yönetici panelinde de oturum açık olsun.</li>
+<li>Eklenti simgesini sabitle, <strong>Arya Kurum Ajanı</strong>nı aç ve <strong>Panelleri tara</strong>ya bas.</li>
+<li>Özet sayıları ve eşleşme kuralını kontrol et. Telefonla tekil öğrenci eşleşmesi ve grup adı+seviyeyle tekil grup eşleşmesini onayla; sonra <strong>Arya Kurum Takip’e aktar</strong>ya bas.</li>
+<li>İlk aktarım başarılı olduktan sonra istersen 6 saatte bir otomatik taramayı aç. Bilgisayar ve tarayıcı açık kalmalıdır.</li>
+</ol>
+<a class="button" href="https://github.com/onurqlp/arya/archive/refs/heads/main.zip">Arya eklenti paketini indir</a>
+
+<h2>Güvenli aktarım davranışı</h2>
+<ul>
+<li>Parola veya oturum çerezi eklenti tarafından okunmaz ya da kaydedilmez.</li>
+<li>Tarama sırasında veriler tarayıcı oturum belleğinde bekler. Arya’ya gönderimden sonra bu bekleyen kopya silinir.</li>
+<li>Bir panel oturumu kapanır, liste eksik görünür veya kimlik eşleşmesi belirsiz kalırsa aktarım durur; eski snapshot yeni veri gibi gösterilmez.</li>
+<li>İki sistemdeki telefon numarası sadece tarayıcıda birebir ve tekil eşleşme için kullanılır. Grup eşleşmesi ad ve seviye birebir ve tekil olduğunda önerilir; eşleşme kuralı ilk aktarımda açıkça onaylanmalıdır.</li>
+<li>Bu eklenti mevcut WhatsApp Grup İzleyicisi’nden ayrıdır; yalnızca <code>crm.aydadil.com</code>, <code>kurs.aydadil.com</code> ve Arya aktarım sayfasına erişir. Eski, çalışmayan Browser AI eklentisine ihtiyaç duymaz.</li>
+</ul>
+<p class="warn"><strong>Tarama sınırı:</strong> Ekran yapısı değişirse, yoklama/ödev satırları tam okunamazsa veya eşleşme tekil değilse veri aktarılmaz. Bu durumda Arya hata kodu gösterir; tahminle kayıt oluşturulmaz.</p>
+<p class="small">Bağlantı: Arya panelindeki <a href="/operations-import.html">Kurum verisi aktarımı</a>. Elle JSON içe aktarma aracı, gerekirse yedek yöntem olarak kalır.</p>
+</section></main></body></html>
