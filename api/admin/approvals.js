@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     const db = await ensureSchema();
     await purgeExpired(db);
     const rows = await db.query(
-      "SELECT id, source_message_ids, analysis_text, reply_text, status, created_at, reviewed_at, sent_at " +
+      "SELECT id, owner_code, owner_notification_status, owner_notification_error, source_message_ids, analysis_text, reply_text, status, requires_owner_answer, created_at, reviewed_at, sent_at " +
       "FROM arya_approvals WHERE status = $1 ORDER BY created_at DESC LIMIT 100",
       [requestedStatus],
     );

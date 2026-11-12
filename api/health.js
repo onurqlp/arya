@@ -1,6 +1,7 @@
 import { authConfigured } from "../lib/auth.js";
 import { ensureSchema } from "../lib/db.js";
 import { subscriptionStatus } from "../lib/meta-subscription.js";
+import { ownerIdsFromEnvironment } from "../lib/owner-messaging.js";
 
 export default async function handler(_req, res) {
   const configured = {
@@ -11,6 +12,8 @@ export default async function handler(_req, res) {
     metaWebhook: Boolean(process.env.META_APP_SECRET && process.env.META_WEBHOOK_VERIFY_TOKEN),
     metaSend: Boolean(process.env.META_ACCESS_TOKEN && process.env.META_PHONE_NUMBER_ID && process.env.META_GRAPH_API_VERSION)
   };
+  const ownerCount = ownerIdsFromEnvironment().length;
+  const ownerTemplateConfigured = Boolean(String(process.env.ARYA_OWNER_NOTIFICATION_TEMPLATE || "").trim());
 
   let databaseReady = false;
   if (configured.database) {
@@ -27,6 +30,13 @@ export default async function handler(_req, res) {
   const metaSubscription = webhookEndpointReady ? await subscriptionStatus() : { state: "not_configured", subscribed: false };
   const webhookReady = webhookEndpointReady && metaSubscription.subscribed;
   const draftReady = databaseReady && adminReady && configured.openAI;
+  const ownerMessaging = {
+    enabled: ownerCount === 2,
+    ownerCount,
+    directRepliesReady: ownerCount === 2 && configured.metaSend,
+    ownerTemplateConfigured,
+    proactiveNotificationsReady: ownerCount === 2 && configured.metaSend && ownerTemplateConfigured
+  };
   const assetAccessDenied = metaSubscription.metaCode === 100 && metaSubscription.metaSubcode === 33;
 
   res.setHeader("Cache-Control", "no-store");
@@ -42,6 +52,7 @@ export default async function handler(_req, res) {
     protectedDraftEndpoint: draftReady,
     messageStorage: databaseReady && adminReady,
     outboundSending: databaseReady && adminReady && configured.metaSend && !assetAccessDenied,
-    note: "Incoming messages need both the verified callback and a WABA subscription. Analysis and individual message sending require separate admin actions. Approval alone does not send."
+    ownerMessaging,
+    note: "Incoming individual messages need both the verified callback and a WABA subscription. Asya-style replies grounded in current verified information are sent automatically. Uncertain or human-decision cases are privately escalated to allowlisted owners; the customer gets no handoff message, and an owner can send the exact answer with CEVAP CODE: answer. WhatsApp customer-service window rules still apply."
   });
 }
