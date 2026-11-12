@@ -24,10 +24,13 @@ export default async function handler(req, res) {
       !/^v\d+\.\d+$/.test(process.env.META_GRAPH_API_VERSION || "")) {
     return res.status(503).json({ error: "not_configured" });
   }
-  const [phoneResult, owned, client] = await Promise.all([
+  const [identity, permissions, waba, phoneResult, owned, client] = await Promise.all([
+    check('me?fields=id,name'),
+    check('me/permissions?fields=permission,status', true),
+    check(process.env.META_WABA_ID + '?fields=id,name'),
     check(phone + "?fields=id,verified_name"),
     check(business + "/owned_whatsapp_business_accounts?fields=id,name&limit=50", true),
     check(business + "/client_whatsapp_business_accounts?fields=id,name&limit=50", true)
   ]);
-  res.status(200).json({ phone: phoneResult, owned, client });
+  res.status(200).json({ identity, permissions, waba, phone: phoneResult, owned, client });
 }
