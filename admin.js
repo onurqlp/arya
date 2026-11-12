@@ -238,7 +238,7 @@ function groupWatcher() {
     '<section class="card" style="margin-top:15px"><h2>Windows kurulumu</h2>' +
     '<div class="step"><span class="stepnum">1</span><div><strong>Grup adlarını kaydet</strong><p>Yalnızca buraya yazdığın gruplar aktarılır.</p></div></div>' +
     '<div class="step"><span class="stepnum">2</span><div><strong>Bağlantı dosyasını indir</strong><p>Bu dosya eklentiyi Arya’ya bağlayan anahtarı içerir; kimseyle paylaşma.</p></div></div>' +
-    '<div class="step"><span class="stepnum">3</span><div><strong>Chrome veya Edge’e eklentiyi yükle</strong><p>PR yayına alındığında eklenti klasörünü Arya’dan indirip “Load unpacked” ile seç.</p></div></div>' +
+    '<div class="step"><span class="stepnum">3</span><div><strong>Chrome veya Edge’e eklentiyi yükle</strong><p><a href="https://github.com/onurqlp/arya/archive/refs/heads/main.zip" target="_blank" rel="noopener noreferrer">Arya proje ZIP’ini indir</a>, ZIP’i aç; Chrome/Edge’de <code>chrome://extensions</code> veya <code>edge://extensions</code> sayfasında Geliştirici modu ve “Load unpacked” ile içindeki <code>local-group-watcher</code> klasörünü seç. Eklenti ayarlarından 2. adımda indirdiğin bağlantı JSON’unu içe aktar.</p></div></div>' +
     '<div class="step"><span class="stepnum">4</span><div><strong>Üçüncü numarayı QR ile bağla</strong><p>WhatsApp Web’i Windows bilgisayarında aç; telefondan QR’ı tara ve bilgisayarı açık bırak.</p></div></div></section>';
 }
 
