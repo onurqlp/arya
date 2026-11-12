@@ -1,18 +1,6 @@
 import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 import { ensureSchema, purgeExpired } from "../lib/db.js";
 
-function parseAllowlist() {
-  const raw = process.env.ARYA_LOCAL_GROUP_ALLOWLIST || "";
-  try {
-    const value = JSON.parse(raw);
-    return Array.isArray(value)
-      ? new Set(value.filter((item) => typeof item === "string").map((item) => item.trim()).filter(Boolean))
-      : new Set();
-  } catch {
-    return new Set(raw.split("\n").map((item) => item.trim()).filter(Boolean));
-  }
-}
-
 function validSignature(req, secret) {
   const timestamp = String(req.headers["x-arya-timestamp"] || "");
   const signature = String(req.headers["x-arya-signature"] || "");
@@ -105,8 +93,7 @@ export default async function handler(req, res) {
   }
 
   const secret = process.env.ARYA_LOCAL_GROUP_INGEST_SECRET;
-  const allowlist = parseAllowlist();
-  if (!secret || secret.length < 32 || !process.env.DATABASE_URL || !allowlist.size) {
+  if (!secret || secret.length < 32 || !process.env.DATABASE_URL) {
     res.status(503).json({ error: "local_group_ingest_not_configured" });
     return;
   }
@@ -128,7 +115,8 @@ export default async function handler(req, res) {
   if (
     source !== "arya-local-group-watcher" ||
     typeof groupName !== "string" ||
-    !allowlist.has(groupName) ||
+    !groupName.trim() ||
+    groupName.length > 100 ||
     !Array.isArray(messages) ||
     messages.length < 1 ||
     messages.length > 20
@@ -154,6 +142,16 @@ export default async function handler(req, res) {
   try {
     const db = await ensureSchema();
     await purgeExpired(db);
+    const configRows = await db.query("SELECT group_names FROM arya_local_group_config WHERE id = 'default'");
+    const allowlist = Array.isArray(configRows[0]?.group_names) ? configRows[0].group_names : [];
+    if (!allowlist.length) {
+      res.status(503).json({ error: "group_allowlist_not_configured" });
+      return;
+    }
+    if (!allowlist.includes(groupName)) {
+      res.status(403).json({ error: "group_not_allowlisted" });
+      return;
+    }
     const inserted = [];
     for (const message of messages) {
       const rows = await db.query(
