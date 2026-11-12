@@ -12,7 +12,7 @@ async function check(path, includeIds = false) {
     const data = await response.json().catch(() => ({}));
     return { status: response.status, code: Number(data.error?.code) || null,
       subcode: Number(data.error?.error_subcode) || null,
-      ...(includeIds ? { ids: (Array.isArray(data.data) ? data.data : []).map(x => String(x.id)) } : {}) };
+      ...(includeIds ? { ids: (Array.isArray(data.data) ? data.data : []).map(x => String(x.id || x.permission || "")) } : {}) };
   } catch { return { status: 0, code: null }; }
 }
 export default async function handler(req, res) {
