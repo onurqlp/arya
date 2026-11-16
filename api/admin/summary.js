@@ -16,7 +16,14 @@ export default async function handler(req, res) {
       db.query("SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE (message_time AT TIME ZONE 'Europe/Istanbul')::date = (NOW() AT TIME ZONE 'Europe/Istanbul')::date)::int AS today, COUNT(*) FILTER (WHERE message_time >= NOW() - INTERVAL '7 days')::int AS week, COUNT(DISTINCT conversation_id)::int AS conversations FROM arya_messages"),
       db.query("SELECT (message_time AT TIME ZONE 'Europe/Istanbul')::date AS day, COUNT(*)::int AS count FROM arya_messages WHERE message_time >= NOW() - INTERVAL '7 days' GROUP BY day ORDER BY day"),
       db.query("SELECT status, COUNT(*)::int AS count FROM arya_approvals GROUP BY status"),
-      db.query("SELECT message_id, conversation_id, sender_name, message_type, body, message_time FROM arya_messages ORDER BY message_time DESC LIMIT 150")
+      db.query(
+        "SELECT message_id, conversation_id, sender_name, message_type, body, message_time, is_outbound FROM (" +
+        "SELECT message_id, conversation_id, sender_name, message_type, body, message_time, FALSE AS is_outbound FROM arya_messages " +
+        "UNION ALL " +
+        "SELECT id AS message_id, conversation_id, 'AYDA' AS sender_name, 'text' AS message_type, body, sent_at AS message_time, TRUE AS is_outbound " +
+        "FROM arya_outbound_messages WHERE status = 'sent' AND sent_at IS NOT NULL" +
+        ") AS conversation_timeline ORDER BY message_time DESC LIMIT 150",
+      )
     ]);
     res.status(200).json({ counts: counts[0], daily, approvals, messages: recent });
   } catch {

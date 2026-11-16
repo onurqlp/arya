@@ -20,6 +20,12 @@ const errorText = (code) => ({
   meta_send_not_configured: "Meta mesaj gönderim bilgileri henüz eklenmedi.",
   individual_conversation_required: "Yalnızca doğrulanmış bireysel sohbetlere gönderim destekleniyor.",
   meta_send_rejected: "Meta gönderimi reddetti. Numaranın izinlerini ve 24 saatlik mesajlaşma penceresini kontrol edin.",
+  invalid_reply_text: "Yanıt boş olamaz ve 4.096 karakteri geçemez.",
+  conversation_not_found: "Bu sohbet için gönderilebilir bir gelen mesaj bulunamadı.",
+  reply_already_sent: "Bu gönderim isteği daha önce tamamlandı.",
+  reply_request_reused: "Bu istek anahtarı daha önce kullanılmış. Yeniden gönderim için sayfayı yenileyin.",
+  manual_delivery_uncertain: "Gönderim sonucu belirsiz. WhatsApp teslim durumunu kontrol etmeden yeniden göndermeyin.",
+  send_state_unavailable: "Gönderim durumu doğrulanamadı. WhatsApp’ta teslimi kontrol etmeden yeniden göndermeyin.",
   meta_subscription_failed: "Meta aboneliği tamamlanamadı. Aşağıdaki durum kodunu kontrol edin.",
   meta_delivery_uncertain: "Meta yanıtı belirsiz. Tekrar göndermeden önce Meta'da teslim durumunu kontrol edin.",
   unauthorized: "Oturum sona erdi. Yeniden giriş yapın.",
@@ -108,10 +114,12 @@ function groupName(group) {
   return "Sohbet " + group.id.split(":").slice(-1)[0];
 }
 function messageCard(message, selectable = false) {
-  const content = '<div><strong>' + esc(message.sender_name || "Katılımcı") + '</strong> · ' + esc(date(message.message_time)) +
+  const outgoing = Boolean(message.is_outbound);
+  const content = '<div><strong>' + esc(message.sender_name || (outgoing ? "AYDA" : "Katılımcı")) + '</strong> · ' + esc(date(message.message_time)) +
     '<div class="live-message-body">' + esc(message.body || "Metin içermeyen " + message.message_type + " mesajı") + '</div></div>';
-  return selectable ? '<label class="live-message"><input type="checkbox" name="messageIds" value="' +
-    esc(message.message_id) + '">' + content + '</label>' : '<div class="live-message">' + content + '</div>';
+  const kind = outgoing ? " outgoing" : "";
+  return selectable && !outgoing ? '<label class="live-message"><input type="checkbox" name="messageIds" value="' +
+    esc(message.message_id) + '">' + content + '</label>' : '<div class="live-message' + kind + '">' + content + '</div>';
 }
 function overview() {
   const c = summary.counts || {};
@@ -132,12 +140,19 @@ function conversationPage() {
   const groups = conversations().filter((g) => (groupName(g) + " " + g.messages.map((m) => m.body).join(" ")).toLowerCase().includes(state.search.toLowerCase()));
   if (state.conversation) {
     const group = conversations().find((g) => g.id === state.conversation);
+    const canReply = Boolean(group && /^\d{5,30}:\d{6,20}$/.test(group.id));
     return title(group ? groupName(group) : "Konuşma bulunamadı", "Son 150 mesajdan bu sohbete ait kayıtlar.",
       button("Listeye dön", 'data-route="conversations"')) +
-      '<section class="card">' + (group ? '<form id="analyzeForm">' +
+      '<section class="card">' + (group ?
       [...group.messages].reverse().map((m) => messageCard(m, true)).join("") +
-      '<div class="live-toolbar"><label class="consent-row"><input id="aiConsent" type="checkbox"> Seçtiğim mesajların OpenAI ile analiz edilmesini onaylıyorum.</label>' +
-      button("Analiz et ve taslak oluştur", 'type="submit"', "primary") + '</div></form>' : empty("Bu konuşma erişilebilir değil.")) + '</section>';
+      '<form id="analyzeForm"><div class="live-toolbar"><label class="consent-row"><input id="aiConsent" type="checkbox"> Seçtiğim mesajların OpenAI ile analiz edilmesini onaylıyorum.</label>' +
+      button("Analiz et ve taslak oluştur", 'type="submit"', "primary") + '</div></form>' +
+      (canReply ? '<form id="manualReplyForm" class="manual-reply" data-conversation="' + esc(group.id) + '">' +
+        '<h2>WhatsApp’tan yanıtla</h2><p class="muted-note">Yanıt doğrudan müşteriye gider. WhatsApp’ın 24 saatlik mesajlaşma penceresi uygulanır.</p>' +
+        '<textarea name="text" maxlength="4096" required placeholder="Yanıtınızı yazın…"></textarea>' +
+        '<input type="hidden" name="requestId" value="' + esc(crypto.randomUUID()) + '">' +
+        '<div class="live-toolbar">' + button("WhatsApp’tan gönder", 'type="submit"', "primary") + '</div></form>' :
+        '<p class="muted-note">Bu kayıt doğrulanmış birebir sohbet numarası taşımadığı için yanıt gönderimi kapalı.</p>') : empty("Bu konuşma erişilebilir değil.")) + '</section>';
   }
   return title("Konuşmalar", "Kaydedilen gerçek mesajlar. En son 150 mesaj üzerinden listelenir.", button("Yenile", 'data-refresh')) +
     '<section class="card"><input class="content-search" id="search" placeholder="Sohbet veya mesaj ara…" value="' + esc(state.search) + '">' +
@@ -250,6 +265,27 @@ function bindActions() {
       await api("/api/agent-draft", { method: "POST", body: JSON.stringify({ messageIds, confirmOpenAI: true }) });
       state.approvalStatus = "pending"; navigate("approvals");
     } catch (error) { notice(errorText(error.code)); submit.disabled = false; }
+  };
+  const replyForm = document.getElementById("manualReplyForm");
+  if (replyForm) replyForm.onsubmit = async (event) => {
+    event.preventDefault();
+    const submit = replyForm.querySelector('[type="submit"]');
+    const text = replyForm.elements.text.value;
+    const requestId = replyForm.elements.requestId.value;
+    if (!text.trim()) return;
+    submit.disabled = true;
+    try {
+      await api("/api/admin/reply", { method: "POST", body: JSON.stringify({
+        conversationId: replyForm.dataset.conversation, text, requestId
+      }) });
+      state.conversation = replyForm.dataset.conversation;
+      await render();
+      notice("Yanıt WhatsApp üzerinden gönderildi.");
+    } catch (error) {
+      notice(errorText(error.code));
+      if (error.code === "meta_send_rejected") replyForm.elements.requestId.value = crypto.randomUUID();
+      submit.disabled = false;
+    }
   };
   document.querySelectorAll("[data-approval]").forEach((element) => element.onclick = async () => {
     element.disabled = true;
