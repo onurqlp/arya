@@ -98,3 +98,33 @@ test("does not resend a request with an uncertain prior delivery", async () => {
   assert.equal(result.error, "manual_delivery_uncertain");
   assert.equal(called, false);
 });
+
+test("surfaces safe Meta rejection diagnostics without retrying", async () => {
+  const db = fakeDb();
+  const originalError = console.error;
+  console.error = () => {};
+  try {
+    const result = await sendManualReply(db, {
+      conversationId,
+      text: "Merhaba",
+      requestId,
+    }, async () => ({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: {
+        type: "OAuthException",
+        code: 100,
+        error_subcode: 2388339,
+        fbtrace_id: "trace-test"
+      } })
+    }));
+
+    assert.equal(result.error, "meta_send_rejected");
+    assert.equal(result.providerStatus, 400);
+    assert.equal(result.metaCode, 100);
+    assert.equal(result.metaSubcode, 2388339);
+    assert.ok(db.calls.some((call) => call.sql.includes("status = 'rejected'")));
+  } finally {
+    console.error = originalError;
+  }
+});

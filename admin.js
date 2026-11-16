@@ -19,7 +19,7 @@ const errorText = (code) => ({
   openai_not_configured: "OpenAI anahtarı ve model adı henüz eklenmedi.",
   meta_send_not_configured: "Meta mesaj gönderim bilgileri henüz eklenmedi.",
   individual_conversation_required: "Yalnızca doğrulanmış bireysel sohbetlere gönderim destekleniyor.",
-  meta_send_rejected: "Meta gönderimi reddetti. Numaranın izinlerini ve 24 saatlik mesajlaşma penceresini kontrol edin.",
+  meta_send_rejected: "Meta gönderimi reddetti.",
   invalid_reply_text: "Yanıt boş olamaz ve 4.096 karakteri geçemez.",
   invalid_reply_request_id: "Gönderim isteği doğrulanamadı. Sayfayı yenileyip yeniden deneyin.",
   conversation_not_found: "Bu sohbet için gönderilebilir bir gelen mesaj bulunamadı.",
@@ -39,7 +39,14 @@ async function api(path, options = {}) {
   const response = await fetch(path, { cache: "no-store", credentials: "same-origin", ...options,
     headers: { Accept: "application/json", ...(options.body ? { "Content-Type": "application/json" } : {}), ...(options.headers || {}) } });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) { const error = new Error(data.error || "request_failed"); error.code = data.error; throw error; }
+  if (!response.ok) {
+    const error = new Error(data.error || "request_failed");
+    error.code = data.error;
+    error.providerStatus = data.providerStatus;
+    error.metaCode = data.metaCode;
+    error.metaSubcode = data.metaSubcode;
+    throw error;
+  }
   return data;
 }
 function notice(message) {
@@ -297,7 +304,12 @@ function bindActions() {
         await render();
         notice("Yanıt WhatsApp üzerinden gönderildi.");
       } catch (error) {
-        notice(errorText(error.code));
+        const diagnostic = [
+          error.providerStatus ? "HTTP " + error.providerStatus : "",
+          error.metaCode !== null && error.metaCode !== undefined ? "Meta " + error.metaCode +
+            (error.metaSubcode !== null && error.metaSubcode !== undefined ? "/" + error.metaSubcode : "") : ""
+        ].filter(Boolean).join(" · ");
+        notice(errorText(error.code) + (diagnostic ? " (" + diagnostic + ")" : ""));
         if (error.code === "meta_send_rejected") replyForm.elements.requestId.value = crypto.randomUUID();
         sending = false;
         updateSubmit();

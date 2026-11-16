@@ -23,6 +23,8 @@ export default async function handler(req, res) {
       res.status(result.status).json({
         error: result.error,
         ...(result.providerStatus ? { providerStatus: result.providerStatus } : {}),
+        ...(result.metaCode !== null && result.metaCode !== undefined ? { metaCode: result.metaCode } : {}),
+        ...(result.metaSubcode !== null && result.metaSubcode !== undefined ? { metaSubcode: result.metaSubcode } : {}),
         ...(result.retryable === false ? { retryable: false } : {}),
       });
       return;
