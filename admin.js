@@ -352,9 +352,10 @@ document.getElementById("logoutBtn").onclick = async () => {
 function hasUnsavedConversationWork() {
   const reply = document.getElementById("manualReplyForm");
   const analysis = document.getElementById("analyzeForm");
+  const active = document.activeElement;
   return Boolean(
-    (reply && reply.elements.text.value.trim()) ||
-    (analysis && analysis.querySelector('input[name="messageIds"]:checked')) ||
+    (reply && (reply.contains(active) || reply.elements.text.value.trim())) ||
+    (analysis && (analysis.contains(active) || analysis.querySelector('input[name="messageIds"]:checked'))) ||
     document.getElementById("aiConsent")?.checked
   );
 }
