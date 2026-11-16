@@ -21,7 +21,9 @@ const errorText = (code) => ({
   individual_conversation_required: "Yalnızca doğrulanmış bireysel sohbetlere gönderim destekleniyor.",
   meta_send_rejected: "Meta gönderimi reddetti. Numaranın izinlerini ve 24 saatlik mesajlaşma penceresini kontrol edin.",
   invalid_reply_text: "Yanıt boş olamaz ve 4.096 karakteri geçemez.",
+  invalid_reply_request_id: "Gönderim isteği doğrulanamadı. Sayfayı yenileyip yeniden deneyin.",
   conversation_not_found: "Bu sohbet için gönderilebilir bir gelen mesaj bulunamadı.",
+  customer_service_window_closed: "WhatsApp’ın 24 saatlik mesajlaşma penceresi kapanmış. Müşteriden yeni mesaj geldikten sonra yanıt gönderebilirsiniz.",
   reply_already_sent: "Bu gönderim isteği daha önce tamamlandı.",
   reply_request_reused: "Bu istek anahtarı daha önce kullanılmış. Yeniden gönderim için sayfayı yenileyin.",
   manual_delivery_uncertain: "Gönderim sonucu belirsiz. WhatsApp teslim durumunu kontrol etmeden yeniden göndermeyin.",
@@ -131,7 +133,7 @@ function overview() {
     metric("Onay bekleyen", pending, "Yanıt taslakları") + '</div>' +
     '<section class="card"><div class="cardhead"><h2>Son konuşmalar</h2>' +
     button("Tüm konuşmalar", 'data-route="conversations"') + '</div>' +
-    (groups.length ? groups.slice(0, 8).map((g) => '<button class="conversation" data-conversation="' + esc(g.id) +
+    (groups.length ? groups.slice(0, 8).map((g) => '<button class="conversation" data-open-conversation="' + esc(g.id) +
       '"><span class="groupicon">▤</span><span><strong>' + esc(groupName(g)) + '</strong><span class="convo-preview">' +
       esc(g.latest.body || g.latest.message_type) + '</span></span><span class="time">' + esc(date(g.latest.message_time)) +
       '</span></button>').join("") : empty("Henüz gerçek mesaj yok. Meta webhook bağlanınca yeni mesajlar burada görünecek.")) + '</section>';
@@ -156,7 +158,7 @@ function conversationPage() {
   }
   return title("Konuşmalar", "Kaydedilen gerçek mesajlar. En son 150 mesaj üzerinden listelenir.", button("Yenile", 'data-refresh')) +
     '<section class="card"><input class="content-search" id="search" placeholder="Sohbet veya mesaj ara…" value="' + esc(state.search) + '">' +
-    (groups.length ? groups.map((g) => '<button class="conversation" data-conversation="' + esc(g.id) +
+    (groups.length ? groups.map((g) => '<button class="conversation" data-open-conversation="' + esc(g.id) +
     '"><span class="groupicon">▤</span><span><strong>' + esc(groupName(g)) + '</strong><span class="convo-preview">' +
     esc(g.latest.body || g.latest.message_type) + '</span><span class="tag blue">' + number(g.messages.length) +
     ' mesaj</span></span><span class="time">' + esc(date(g.latest.message_time)) + '</span></button>').join("") :
@@ -233,8 +235,8 @@ function setup() {
 }
 function bindActions() {
   document.querySelectorAll("[data-route]").forEach((element) => element.onclick = () => navigate(element.dataset.route));
-  document.querySelectorAll("[data-conversation]").forEach((element) => element.onclick = () =>
-    navigate("conversations", element.dataset.conversation));
+  document.querySelectorAll("[data-open-conversation]").forEach((element) => element.onclick = () =>
+    navigate("conversations", element.dataset.openConversation));
   document.querySelectorAll("[data-refresh]").forEach((element) => element.onclick = () => {
     if (state.route === "conversations" && state.conversation && hasUnsavedConversationWork()) {
       notice("Yanıt alanında yazı veya seçili analiz varken yenileme yapılmadı."); return;
@@ -272,26 +274,36 @@ function bindActions() {
     } catch (error) { notice(errorText(error.code)); submit.disabled = false; }
   };
   const replyForm = document.getElementById("manualReplyForm");
-  if (replyForm) replyForm.onsubmit = async (event) => {
-    event.preventDefault();
+  if (replyForm) {
+    const textInput = replyForm.elements.text;
     const submit = replyForm.querySelector('[type="submit"]');
-    const text = replyForm.elements.text.value;
-    const requestId = replyForm.elements.requestId.value;
-    if (!text.trim()) return;
-    submit.disabled = true;
-    try {
-      await api("/api/admin/reply", { method: "POST", body: JSON.stringify({
-        conversationId: replyForm.dataset.conversation, text, requestId
-      }) });
-      state.conversation = replyForm.dataset.conversation;
-      await render();
-      notice("Yanıt WhatsApp üzerinden gönderildi.");
-    } catch (error) {
-      notice(errorText(error.code));
-      if (error.code === "meta_send_rejected") replyForm.elements.requestId.value = crypto.randomUUID();
-      submit.disabled = false;
-    }
-  };
+    let sending = false;
+    const updateSubmit = () => { submit.disabled = sending || !textInput.value.trim(); };
+    textInput.addEventListener("input", updateSubmit);
+    updateSubmit();
+    replyForm.onsubmit = async (event) => {
+      event.preventDefault();
+      const text = textInput.value;
+      const requestId = replyForm.elements.requestId.value;
+      if (!text.trim()) { updateSubmit(); return; }
+      sending = true;
+      updateSubmit();
+      notice("WhatsApp’a gönderiliyor…");
+      try {
+        await api("/api/admin/reply", { method: "POST", body: JSON.stringify({
+          conversationId: replyForm.dataset.conversation, text, requestId
+        }) });
+        state.conversation = replyForm.dataset.conversation;
+        await render();
+        notice("Yanıt WhatsApp üzerinden gönderildi.");
+      } catch (error) {
+        notice(errorText(error.code));
+        if (error.code === "meta_send_rejected") replyForm.elements.requestId.value = crypto.randomUUID();
+        sending = false;
+        updateSubmit();
+      }
+    };
+  }
   document.querySelectorAll("[data-approval]").forEach((element) => element.onclick = async () => {
     element.disabled = true;
     try {
