@@ -1,6 +1,8 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { authConfigured, safeEqual } from "../lib/auth.js";
 import { ensureSchema, purgeExpired } from "../lib/db.js";
+import { createAutomaticReview } from "../lib/reviews.js";
+import { handleOwnerMessage, normalizeWhatsAppId, ownerIdsFromEnvironment } from "../lib/owner-messaging.js";
 
 export const config = {
   maxDuration: 60,
@@ -195,7 +197,25 @@ export default async function handler(req, res) {
   try {
     const db = await ensureSchema();
     let inserted = 0;
+    let ownerMessagesHandled = 0;
+    let ownerRepliesFailed = 0;
+    let nonIndividualIgnored = 0;
+    const newCustomerMessages = [];
+    const ownerIds = new Set(ownerIdsFromEnvironment());
     for (const message of messages) {
+      const individualConversation = message.conversationId === `${process.env.META_PHONE_NUMBER_ID}:${normalizeWhatsAppId(message.senderId)}`;
+      if (ownerIds.has(normalizeWhatsAppId(message.senderId)) && individualConversation) {
+        const result = await handleOwnerMessage(db, message);
+        if (result.handled) {
+          ownerMessagesHandled += 1;
+          if (result.status === "reply_failed") ownerRepliesFailed += 1;
+        }
+        continue;
+      }
+      if (!individualConversation) {
+        nonIndividualIgnored += 1;
+        continue;
+      }
       const rows = await db.query(
         "INSERT INTO arya_messages (message_id, conversation_id, sender_id, sender_name, message_type, body, message_time) " +
         "VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz) ON CONFLICT (message_id) DO NOTHING RETURNING message_id",
@@ -209,14 +229,53 @@ export default async function handler(req, res) {
           message.messageTime
         ],
       );
-      if (rows.length) inserted += 1;
+      if (rows.length) {
+        inserted += 1;
+        newCustomerMessages.push(message);
+      }
     }
-    // Retention cleanup follows ingestion and cannot block saving a new message.
+    // Save messages before retention work, and never let cleanup failure block ingestion.
     await purgeExpired(db).catch((error) => {
       console.warn("arya_webhook_cleanup_failed", error?.code || error?.name || "unknown");
     });
-    console.info("arya_webhook_saved", JSON.stringify({ received: messages.length, stored: inserted, duplicates: messages.length - inserted }));
-    res.status(200).json({ received: messages.length, stored: inserted, duplicates: messages.length - inserted });
+    const latestByConversation = new Map();
+    for (const message of newCustomerMessages) {
+      if (!message.body.trim()) continue;
+      if (message.conversationId !== `${process.env.META_PHONE_NUMBER_ID}:${message.senderId}`) continue;
+      latestByConversation.set(message.conversationId, message);
+    }
+    let draftsCreated = 0;
+    let draftFailures = 0;
+    let autoRepliesSent = 0;
+    let ownerEscalations = 0;
+    for (const message of latestByConversation.values()) {
+      try {
+        const result = await createAutomaticReview(db, message);
+        if (result.created) draftsCreated += 1;
+        if (result.autoSent) autoRepliesSent += 1;
+        if (result.escalated) ownerEscalations += 1;
+      } catch {
+        draftFailures += 1;
+        await db.query(
+          "INSERT INTO arya_audit (id, actor, action, entity_id, details) VALUES ($1, 'system', 'auto_review_failed', $2, '{\"stage\":\"draft_or_notification\"}'::jsonb)",
+          [randomUUID(), message.messageId],
+        ).catch(() => {});
+      }
+    }
+    const result = {
+      received: messages.length,
+      stored: inserted,
+      duplicates: messages.length - inserted - ownerMessagesHandled - nonIndividualIgnored,
+      nonIndividualIgnored,
+      draftsCreated,
+      draftFailures,
+      autoRepliesSent,
+      ownerEscalations,
+      ownerMessagesHandled,
+      ownerRepliesFailed,
+    };
+    console.info("arya_webhook_processed", JSON.stringify(result));
+    res.status(200).json(result);
   } catch (error) {
     console.error("arya_webhook_storage_failed", error?.code || error?.name || "unknown");
     res.setHeader("Retry-After", "60");
