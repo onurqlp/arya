@@ -3,6 +3,7 @@ import { authConfigured, safeEqual } from "../lib/auth.js";
 import { ensureSchema, purgeExpired } from "../lib/db.js";
 
 export const config = {
+  maxDuration: 60,
   api: {
     bodyParser: false
   }
@@ -193,7 +194,6 @@ export default async function handler(req, res) {
 
   try {
     const db = await ensureSchema();
-    await purgeExpired(db);
     let inserted = 0;
     for (const message of messages) {
       const rows = await db.query(
@@ -211,8 +211,14 @@ export default async function handler(req, res) {
       );
       if (rows.length) inserted += 1;
     }
+    // Retention cleanup follows ingestion and cannot block saving a new message.
+    await purgeExpired(db).catch((error) => {
+      console.warn("arya_webhook_cleanup_failed", error?.code || error?.name || "unknown");
+    });
+    console.info("arya_webhook_saved", JSON.stringify({ received: messages.length, stored: inserted, duplicates: messages.length - inserted }));
     res.status(200).json({ received: messages.length, stored: inserted, duplicates: messages.length - inserted });
-  } catch {
+  } catch (error) {
+    console.error("arya_webhook_storage_failed", error?.code || error?.name || "unknown");
     res.setHeader("Retry-After", "60");
     res.status(503).json({ error: "storage_unavailable" });
   }
