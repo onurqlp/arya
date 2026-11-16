@@ -349,7 +349,16 @@ document.getElementById("logoutBtn").onclick = async () => {
   await api("/api/admin/logout", { method: "POST", body: "{}" }).catch(() => {});
   summary = null; await render();
 };
+function hasUnsavedConversationWork() {
+  const reply = document.getElementById("manualReplyForm");
+  const analysis = document.getElementById("analyzeForm");
+  return Boolean(
+    (reply && reply.elements.text.value.trim()) ||
+    (analysis && analysis.querySelector('input[name="messageIds"]:checked')) ||
+    document.getElementById("aiConsent")?.checked
+  );
+}
 setInterval(() => { if (session.authenticated && !document.hidden &&
   ["overview", "conversations", "reports", "insights", "approvals"].includes(state.route) &&
-  !document.getElementById("analyzeForm")) render(); }, 30000);
+  !hasUnsavedConversationWork()) render(); }, 30000);
 render();
