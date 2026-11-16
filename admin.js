@@ -142,7 +142,7 @@ function conversationPage() {
     const group = conversations().find((g) => g.id === state.conversation);
     const canReply = Boolean(group && /^\d{5,30}:\d{6,20}$/.test(group.id));
     return title(group ? groupName(group) : "Konuşma bulunamadı", "Son 150 mesajdan bu sohbete ait kayıtlar.",
-      button("Listeye dön", 'data-route="conversations"')) +
+      button("Mesajları yenile", 'data-refresh') + button("Listeye dön", 'data-route="conversations"')) +
       '<section class="card">' + (group ?
       [...group.messages].reverse().map((m) => messageCard(m, true)).join("") +
       '<form id="analyzeForm"><div class="live-toolbar"><label class="consent-row"><input id="aiConsent" type="checkbox"> Seçtiğim mesajların OpenAI ile analiz edilmesini onaylıyorum.</label>' +
@@ -235,7 +235,12 @@ function bindActions() {
   document.querySelectorAll("[data-route]").forEach((element) => element.onclick = () => navigate(element.dataset.route));
   document.querySelectorAll("[data-conversation]").forEach((element) => element.onclick = () =>
     navigate("conversations", element.dataset.conversation));
-  document.querySelectorAll("[data-refresh]").forEach((element) => element.onclick = render);
+  document.querySelectorAll("[data-refresh]").forEach((element) => element.onclick = () => {
+    if (state.route === "conversations" && state.conversation && hasUnsavedConversationWork()) {
+      notice("Yanıt alanında yazı veya seçili analiz varken yenileme yapılmadı."); return;
+    }
+    render();
+  });
   const subscribe = document.querySelector("[data-subscribe]");
   if (subscribe) subscribe.onclick = async () => {
     subscribe.disabled = true;
@@ -361,5 +366,6 @@ function hasUnsavedConversationWork() {
 }
 setInterval(() => { if (session.authenticated && !document.hidden &&
   ["overview", "conversations", "reports", "insights", "approvals"].includes(state.route) &&
+  !(state.route === "conversations" && state.conversation) &&
   !hasUnsavedConversationWork()) render(); }, 30000);
 render();
