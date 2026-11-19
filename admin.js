@@ -1,5 +1,5 @@
 const page = document.getElementById("page");
-const state = { route: location.hash === "#kurum-takip" ? "operations" : "overview", conversation: null, approvalStatus: "pending", search: "", request: 0 };
+const state = { route: location.hash === "#kurum-takip" ? "operations" : location.hash === "#ders-teyit" ? "teacher-confirm" : "overview", conversation: null, approvalStatus: "pending", search: "", request: 0, teacherFixtures: [] };
 let session = { authenticated: false, setup: {} };
 let health = {};
 let summary = null;
@@ -61,14 +61,15 @@ function navigate(route, conversation = null) {
   state.conversation = conversation;
   state.search = "";
   if (route === "operations") history.replaceState(null, "", "#kurum-takip");
-  else if (location.hash === "#kurum-takip") history.replaceState(null, "", location.pathname + location.search);
+  else if (route === "teacher-confirm") history.replaceState(null, "", "#ders-teyit");
+  else if (location.hash === "#kurum-takip" || location.hash === "#ders-teyit") history.replaceState(null, "", location.pathname + location.search);
   document.getElementById("sidebar").classList.remove("open");
   window.scrollTo(0, 0);
   render();
 }
 function setNavigation() {
   const labels = { overview: "Genel Bakış", conversations: "Konuşmalar", approvals: "Ekibe Danışma",
-    insights: "Analiz ve Bulgular", reports: "Raporlar", operations: "Kurum Takip", setup: "Ajan ve Bağlantılar" };
+    insights: "Analiz ve Bulgular", reports: "Raporlar", operations: "Kurum Takip", "teacher-confirm": "Ders Teyidi", setup: "Ajan ve Bağlantılar" };
   document.getElementById("crumb").textContent = labels[state.route] || "Konuşma";
   document.querySelectorAll("#nav button, .nav button").forEach((node) =>
     node.classList.toggle("active", node.dataset.page === state.route));
@@ -240,7 +241,58 @@ function setup() {
       button("AYDA WP1 hesabını bağla", 'data-subscribe', "primary") : '') +
     '</section><section class="card" style="margin-top:15px"><h2>Çalışma akışı</h2><p>Meta bağlantısı kurulunca imzalı yeni mesajlar kaydedilir. OpenAI bağlantısı eklenince yalnızca yönetici tarafından seçilen mesajlar analiz edilir. Taslak onayı kayıt durumunu değiştirir; gönderim açılana kadar WhatsApp’a yanıt gitmez.</p></section>';
 }
+function teacherConfirmPage(fixtures) {
+  const options = fixtures.map((item) =>
+    '<option value="' + esc(item.id) + '">' + esc(item.label) + '</option>').join("");
+  const first = fixtures[0];
+  const reply = first?.teacher_reply || "(Öğretmen yanıtı yok)";
+  return title("Ders Teyidi", "Arya oturumunuzla açılan, sentetik öğretmen yanıtı test alanı.") +
+    '<div class="warning"><b>Sentetik test alanı</b> Yalnız sabit örnekler değerlendirilir. Gerçek sohbetler okunmaz ve WhatsApp’a mesaj gönderilmez.</div>' +
+    '<section class="teacher-confirm-grid">' +
+      '<article class="card teacher-confirm-input"><div class="cardhead"><div><h2>Örnek yanıt</h2><p>Öğretmen mesajı sisteme gönderilmez.</p></div><span class="tag">GO 2</span></div>' +
+      '<label for="teacherFixture">Senaryo</label><select id="teacherFixture" class="teacher-fixture">' + options + '</select>' +
+      '<div class="teacher-fixture-meta"><span>Planlanan ders</span><strong id="teacherPlannedTime">' + esc(first?.planned_time || "—") + '</strong></div>' +
+      '<div class="teacher-fixture-reply"><span>Sentetik yanıt</span><p id="teacherReplyText">' + esc(reply) + '</p></div>' +
+      '<button class="btn primary" type="button" data-run-teacher-fixture>Yanıtı analiz et</button></article>' +
+      '<article class="card teacher-confirm-output"><div class="cardhead"><div><h2>Karar</h2><p>Belirsizlik varsa insan kontrolü gerekir.</p></div></div>' +
+      '<div id="teacherResult" class="teacher-result muted-note">Bir senaryo seçip analiz edin. Bu ekranda gönderim işlemi bulunmaz.</div></article>' +
+    '</section>';
+}
+function renderTeacherResult(result) {
+  const labels = { confirmed: "Ders teyit edildi", rescheduled: "Saat değişikliği önerildi",
+    cancelled: "Ders iptal edildi", uncertain: "Yanıt belirsiz", needs_human_review: "İnsan kontrolü gerekli" };
+  const label = labels[result.decision] || labels.needs_human_review;
+  const draft = result.student_draft
+    ? '<div class="teacher-draft"><strong>Taslak · gönderilmedi</strong><p>' + esc(result.student_draft) + '</p></div>'
+    : '<div class="muted-note">Öğrenci mesajı taslağı oluşturulmadı.</div>';
+  document.getElementById("teacherResult").innerHTML =
+    '<div class="teacher-decision"><span class="tag ' +
+    (result.decision === "confirmed" || result.decision === "rescheduled" ? "green" : "yellow") +
+    '">' + esc(label) + '</span>' +
+    (result.proposed_time ? '<strong>Saat ' + esc(result.proposed_time) + '</strong>' : '') + '</div>' +
+    '<p class="teacher-rationale">' + esc(result.rationale || "İnsan kontrolü gerekli.") + '</p>' +
+    '<div class="teacher-evidence"><strong>Kanıt</strong><p>' + esc(result.evidence || "—") + '</p></div>' + draft;
+}
 function bindActions() {
+  const fixtureSelect = document.getElementById("teacherFixture");
+  if (fixtureSelect) fixtureSelect.onchange = () => {
+    const item = state.teacherFixtures.find((fixture) => fixture.id === fixtureSelect.value);
+    document.getElementById("teacherPlannedTime").textContent = item?.planned_time || "—";
+    document.getElementById("teacherReplyText").textContent = item?.teacher_reply || "(Öğretmen yanıtı yok)";
+    document.getElementById("teacherResult").textContent = "Senaryoyu analiz edin. Gönderim kapalıdır.";
+  };
+  const runFixture = document.querySelector("[data-run-teacher-fixture]");
+  if (runFixture) runFixture.onclick = async () => {
+    const select = document.getElementById("teacherFixture");
+    runFixture.disabled = true;
+    document.getElementById("teacherResult").textContent = "Analiz ediliyor…";
+    try {
+      const result = await api("/api/teacher-confirm", { method: "POST", body: JSON.stringify({ fixture_id: select.value }) });
+      renderTeacherResult(result);
+    } catch (error) {
+      document.getElementById("teacherResult").textContent = errorText(error.code);
+    } finally { runFixture.disabled = false; }
+  };
   document.querySelectorAll("[data-route]").forEach((element) => element.onclick = () => navigate(element.dataset.route));
   document.querySelectorAll("[data-open-conversation]").forEach((element) => element.onclick = () =>
     navigate("conversations", element.dataset.openConversation));
@@ -351,6 +403,18 @@ async function render() {
   }
   if (request !== state.request) return;
   if (!session.authenticated) { login(); return; }
+  if (state.route === "teacher-confirm") {
+    try {
+      const data = await api("/api/teacher-confirm");
+      if (request !== state.request) return;
+      state.teacherFixtures = data.fixtures || [];
+      page.innerHTML = teacherConfirmPage(state.teacherFixtures);
+      bindActions();
+    } catch (error) {
+      if (request === state.request) page.innerHTML = '<div class="warning">' + esc(errorText(error.code)) + '</div>';
+    }
+    return;
+  }
   if (state.route === "operations") {
     try {
       const module = await import("/operations-ui.js?v=20261112");
@@ -361,7 +425,7 @@ async function render() {
   }
   page.innerHTML = ({
     overview, conversations: conversationPage, approvals: approvalsPage,
-    insights, reports, setup
+    insights, reports, operations: overview, "teacher-confirm": overview, setup
   }[state.route] || overview)();
   bindActions();
   if (state.route === "approvals") {
