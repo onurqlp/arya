@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { authConfigured, safeEqual } from "../lib/auth.js";
 import { ensureSchema, purgeExpired } from "../lib/db.js";
+import { whatsappTransport } from "../lib/whatsapp-transport.js";
 
 export const config = {
   maxDuration: 60,
@@ -114,6 +115,7 @@ function readyForWebhook() {
 }
 
 export default async function handler(req, res) {
+  if (whatsappTransport() === "web") return res.status(404).json({ error: "not_found" });
   res.setHeader("Cache-Control", "no-store");
 
   if (req.method === "GET") {

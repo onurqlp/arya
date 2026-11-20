@@ -1,5 +1,5 @@
 const page = document.getElementById("page");
-const routeByHash = { "#kurum-takip": "operations", "#ders-teyit": "teacher-confirm", "#ders-programi": "coord-schedule", "#ders-kuyrugu": "coord-queue", "#ders-saglik": "coord-health", "#ders-gecmis": "coord-history" };
+const routeByHash = { "#kurum-takip": "operations", "#ders-teyit": "teacher-confirm", "#whatsapp-web-dersleri": "waweb-schedule", "#ders-programi": "coord-schedule", "#ders-kuyrugu": "coord-queue", "#ders-saglik": "coord-health", "#ders-gecmis": "coord-history" };
 const state = { route: routeByHash[location.hash] || "overview", conversation: null, approvalStatus: "pending", search: "", request: 0, teacherFixtures: [] };
 let session = { authenticated: false, setup: {} };
 let health = {};
@@ -20,7 +20,22 @@ const errorText = (code) => ({
   openai_not_configured: "OpenAI anahtarı ve model adı henüz eklenmedi.",
   meta_send_not_configured: "Meta mesaj gönderim bilgileri henüz eklenmedi.",
   individual_conversation_required: "Yalnızca doğrulanmış bireysel sohbetlere gönderim destekleniyor.",
+  invalid_whatsapp_schedule: "Grup, öğretmen, gün ve saat alanlarını kontrol edin.",
+  whatsapp_schedule_conflict: "Bu grup için aynı gün ve saatte başka bir ders kaydı var.",
+  invalid_approval_chat: "Onay WhatsApp grubu adını kontrol edin.",
+  invalid_whatsapp_agent_action: "Ajan işlemi tanınmadı.",
+  invalid_preview_date: "Önizleme için geçerli bir ders tarihi seçin.",
+  invalid_outbox_resolution: "Kuyruk uzlaştırma işlemi geçersiz.",
+  outbox_job_not_reconcilable: "Bu iş artık elle uzlaştırılabilir durumda değil.",
+  whatsapp_local_agent_not_configured: "Yerel WhatsApp Web köprüsü sunucuda hazır değil.",
+  whatsapp_local_agent_not_online: "Canlı kapıyı açmadan önce bu PC’de WhatsApp Web açıkken yerel ajanı bağlayın.",
+  whatsapp_recipient_verification_required: "Canlı gönderim için etkin dersleri ve ARYA ONAY grubunu sunucu allowlist'iyle eşleştirin.",
+  live_send_confirmation_required: "Canlı gönderim onayı alınamadı.",
+  coordinator_database_scope_invalid: "Ders koordinatörü için ayrı veritabanı yapılandırılmalı.",
+  coordinator_store_not_configured: "Ders koordinatörü veritabanı henüz yapılandırılmadı.",
+  coordinator_storage_disabled: "Ders koordinatörü depolaması kapalı.",
   meta_send_rejected: "Meta gönderimi reddetti.",
+  whatsapp_web_sender_not_enabled: "WhatsApp Web alımı hazırlıkta; yerel gönderim bu sürümde kapalı.",
   invalid_reply_text: "Yanıt boş olamaz ve 4.096 karakteri geçemez.",
   invalid_reply_request_id: "Gönderim isteği doğrulanamadı. Sayfayı yenileyip yeniden deneyin.",
   conversation_not_found: "Bu sohbet için gönderilebilir bir gelen mesaj bulunamadı.",
@@ -61,7 +76,7 @@ function navigate(route, conversation = null) {
   state.route = route;
   state.conversation = conversation;
   state.search = "";
-  const routeHashes = { operations: "#kurum-takip", "teacher-confirm": "#ders-teyit", "coord-schedule": "#ders-programi", "coord-queue": "#ders-kuyrugu", "coord-health": "#ders-saglik", "coord-history": "#ders-gecmis" };
+  const routeHashes = { operations: "#kurum-takip", "teacher-confirm": "#ders-teyit", "waweb-schedule": "#whatsapp-web-dersleri", "coord-schedule": "#ders-programi", "coord-queue": "#ders-kuyrugu", "coord-health": "#ders-saglik", "coord-history": "#ders-gecmis" };
   if (routeHashes[route]) history.replaceState(null, "", routeHashes[route]);
   else if (Object.values(routeHashes).includes(location.hash)) history.replaceState(null, "", location.pathname + location.search);
   document.getElementById("sidebar").classList.remove("open");
@@ -71,11 +86,56 @@ function navigate(route, conversation = null) {
 function setNavigation() {
   const labels = { overview: "Genel Bakış", conversations: "Konuşmalar", approvals: "Ekibe Danışma",
     insights: "Analiz ve Bulgular", reports: "Raporlar", operations: "Kurum Takip", "teacher-confirm": "Ders Teyidi",
+    "waweb-schedule": "WhatsApp Web Dersleri",
     "coord-schedule": "Ders Programı", "coord-queue": "Görev Kuyruğu", "coord-health": "Sistem Sağlığı",
     "coord-history": "Geçmiş / Alarmlar", setup: "Ajan ve Bağlantılar" };
   document.getElementById("crumb").textContent = labels[state.route] || "Konuşma";
   document.querySelectorAll("#nav button, .nav button").forEach((node) =>
     node.classList.toggle("active", node.dataset.page === state.route));
+}
+function whatsappWebSchedulePage(data) {
+  const weekdays = ["", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Istanbul" });
+  const rows = (data.schedules || []).map((item) => '<tr><td><strong>' + esc(item.group_name) + '</strong><br><span class="muted-note">' + esc(item.teacher_name) + '</span></td>' +
+    '<td>' + weekdays[Number(item.weekday)] + ' · ' + esc(item.class_time) + '</td><td>' + esc(item.checkin_time) + ' / ' + esc(item.response_deadline) + '</td>' +
+    '<td>Ders öncesi ' + number(item.preclass_minutes) + ' dk</td><td><span class="tag ' + (item.enabled ? 'green' : 'yellow') + '">' + (item.enabled ? 'Taslak etkin' : 'Kapalı') + '</span></td>' +
+    '<td><button class="btn secondary" data-waweb-edit="' + esc(item.id) + '">Düzenle</button></td></tr>').join("");
+  const outboxRows = (data.outbox || []).map((item) => '<tr><td>' + esc(item.job_type) + '</td><td>' + esc(item.chat_name) + '</td><td>' + esc(date(item.run_at)) + '</td>' +
+    '<td><span class="tag ' + (item.status === 'sent' ? 'green' : ['uncertain','blocked'].includes(item.status) ? 'red' : 'yellow') + '">' + esc(item.status) + '</span><br>' + esc(item.outcome_code || '') + '</td>' +
+    '<td>' + (['uncertain','blocked'].includes(item.status) ? '<button class="btn secondary" data-waweb-resolve="confirm_sent" data-id="' + esc(item.id) + '">Teslim edildi</button> <button class="btn secondary" data-waweb-resolve="cancel" data-id="' + esc(item.id) + '">İptal et</button>' : '—') + '</td></tr>').join("");
+  const settings = data.settings || {};
+  return title("WhatsApp Web ders koordinasyonu", "Öğretmen teyidi 09.00’da; 12.00’ye kadar yanıt beklenir. Açık onay gelirse ders saati gruba yazılır; hatırlatma varsayılan olarak 60 dakika öncedir.") +
+    '<div class="warning"><b>Güvenli hazırlık modu</b><span>Ajan duraklatıldı, kuru çalışma açık, gerçek gönderim kapalı. Bu paneldeki planlar demo ders programından ayrıdır. Henüz WhatsApp’a mesaj gönderilmez.</span></div>' +
+    '<div class="grid split"><section class="card"><div class="cardhead"><div><h2>Haftalık öğretmen / grup eşlemesi</h2><p>Grup adını WhatsApp başlığıyla birebir eşleştir.</p></div><button class="btn secondary" data-waweb-new>Yeni ders</button></div>' +
+    '<div class="ops-table-wrap"><table class="table"><thead><tr><th>WhatsApp grubu / öğretmen</th><th>Ders</th><th>Teyit penceresi</th><th>Hatırlatma</th><th>Durum</th><th></th></tr></thead><tbody>' + (rows || '<tr><td colspan="6">Henüz eşleme yok. Yeni ders ile elle tanımla.</td></tr>') + '</tbody></table></div></section>' +
+    '<section class="card"><div class="cardhead"><div><h2>İnsan kontrolü</h2><p>Beklenmedik/çelişkili yanıtlar için iç grup.</p></div></div>' +
+    '<form id="wawebApprovalChatForm"><label for="wawebApprovalChat">Onay WhatsApp grubu</label><input id="wawebApprovalChat" name="chat_name" maxlength="100" value="' + esc(settings.approval_chat_name || "ARYA ONAY") + '" required>' +
+    '<p class="muted-note">Bu ad yalnızca taslak ayarıdır; gönderim kapalı. Canlıya geçmeden önce açık WhatsApp oturumunda grup başlığı doğrulanmalıdır.</p><button class="btn secondary" type="submit">Grup adını kaydet</button></form>' +
+    '<div class="setting"><div><strong>Ajan durumu</strong><small>' + (data.agent?.agent_online ? 'Bu PC çevrimiçi · WhatsApp Web sekmesi bulundu' : 'Bu PC’de yerel ajan/WhatsApp Web bağlı değil') + '<br>' +
+    (settings.paused ? 'Duraklatıldı' : 'Çalışır durumda') + ' · ' + (settings.dry_run ? 'Kuru çalışma' : 'Canlı kip') + ' · gönderim ' + (settings.send_enabled ? 'açık' : 'kapalı') + '</small></div>' +
+    '<button class="btn secondary" data-waweb-pause="' + (settings.paused ? 'resume' : 'pause') + '">' + (settings.paused ? 'Hazırlığı sürdür' : 'Ajanı duraklat') + '</button></div>' +
+    '<div class="warning"><b>Canlı gönderim kapısı</b><span>Alıcıları ve günlük kuru çalışma taslaklarını WhatsApp Web başlıklarıyla doğrulamadan açma. Açmak, sonraki zamanlanmış işleri gerçek gruplara gönderebilir.</span></div>' +
+    '<button class="btn primary" data-waweb-arm>Canlı gönderim kapısını aç</button>' +
+    '</section></div><section class="card"><div class="cardhead"><div><h2>Günlük kuru çalışma</h2><p>Alıcı başlıklarını ve tam mesaj taslaklarını gözden geçir. Buradaki önizleme hiçbir kuyruğa yazmaz ve gönderim yapmaz.</p></div></div>' +
+    '<form id="wawebPreviewForm" class="coord-generate"><label for="wawebPreviewDate">Ders tarihi</label><input id="wawebPreviewDate" name="date" type="date" value="' + today + '" required><button class="btn secondary" type="submit">Günlük taslakları göster</button></form><div id="wawebPreviewResult"></div></section>' +
+    '<section class="card"><div class="cardhead"><div><h2>Tek gönderim kuyruğu</h2><p>Belirsiz teslimat otomatik yinelenmez. Belirsiz/engelli işi WhatsApp’ta kontrol ettikten sonra elle kapat.</p></div></div>' +
+    '<div class="ops-table-wrap"><table class="table"><thead><tr><th>İş</th><th>Alıcı</th><th>Plan</th><th>Durum</th><th>Elle uzlaştırma</th></tr></thead><tbody>' + (outboxRows || '<tr><td colspan="5">Kuyrukta iş yok.</td></tr>') + '</tbody></table></div></section>' +
+    '<section id="wawebEditor" class="card" hidden></section>';
+}
+function whatsappWebScheduleEditor(item = {}) {
+  const weekdays = ["", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
+  const dayOptions = weekdays.slice(1).map((name, index) => '<option value="' + (index + 1) + '" ' + (Number(item.weekday || 1) === index + 1 ? 'selected' : '') + '>' + name + '</option>').join("");
+  const editor = document.getElementById("wawebEditor");
+  editor.hidden = false;
+  editor.innerHTML = '<div class="cardhead"><div><h2>' + (item.id ? 'Ders eşlemesini düzenle' : 'Yeni ders eşlemesi') + '</h2><p>Kaydetmek mesaj göndermez. Yeni kayıt varsayılan olarak kapalıdır.</p></div></div>' +
+    '<form id="wawebScheduleForm" data-id="' + esc(item.id || '') + '"><label>WhatsApp grup başlığı<input name="group_name" maxlength="100" required value="' + esc(item.group_name || '') + '"></label>' +
+    '<label>Öğretmen adı<input name="teacher_name" maxlength="80" required value="' + esc(item.teacher_name || '') + '"></label>' +
+    '<label>Haftanın günü<select name="weekday">' + dayOptions + '</select></label>' +
+    '<label>Ders saati<input type="time" name="class_time" required value="' + esc(item.class_time || '10:00') + '"></label>' +
+    '<label>Teyit mesajı saati<input type="time" name="checkin_time" required value="' + esc(item.checkin_time || '09:00') + '"></label>' +
+    '<label>Yanıt için son saat<input type="time" name="response_deadline" required value="' + esc(item.response_deadline || '12:00') + '"></label>' +
+    '<label>Ders öncesi hatırlatma (dakika)<input type="number" name="preclass_minutes" min="5" max="240" value="' + esc(item.preclass_minutes ?? 60) + '" required></label>' +
+    '<label><input type="checkbox" name="enabled" ' + (item.enabled ? 'checked' : '') + '> Taslak planı etkinleştir</label><div class="coord-actions"><button class="btn primary" type="submit">Kaydet</button><button class="btn secondary" type="button" data-waweb-cancel>Vazgeç</button></div></form>';
 }
 function connection() {
   const db = Boolean(health.databaseReady), meta = Boolean(health.webhookSubscriptionReady);
@@ -124,6 +184,10 @@ function conversations() {
   return [...groups].map(([id, messages]) => ({ id, messages, latest: messages[0] }));
 }
 function groupName(group) {
+  if (group.id.startsWith("waweb:")) {
+    try { return "WhatsApp Web · " + decodeURIComponent(group.id.slice(6)); }
+    catch { return "WhatsApp Web sohbeti"; }
+  }
   return "Sohbet " + group.id.split(":").slice(-1)[0];
 }
 function messageCard(message, selectable = false) {
@@ -147,13 +211,13 @@ function overview() {
     (groups.length ? groups.slice(0, 8).map((g) => '<button class="conversation" data-open-conversation="' + esc(g.id) +
       '"><span class="groupicon">▤</span><span><strong>' + esc(groupName(g)) + '</strong><span class="convo-preview">' +
       esc(g.latest.body || g.latest.message_type) + '</span></span><span class="time">' + esc(date(g.latest.message_time)) +
-      '</span></button>').join("") : empty("Henüz gerçek mesaj yok. Meta webhook bağlanınca yeni mesajlar burada görünecek.")) + '</section>';
+      '</span></button>').join("") : empty("Henüz mesaj yok. Bağlı alım kaynaklarından gelen kayıtlar burada görünecek.")) + '</section>';
 }
 function conversationPage() {
   const groups = conversations().filter((g) => (groupName(g) + " " + g.messages.map((m) => m.body).join(" ")).toLowerCase().includes(state.search.toLowerCase()));
   if (state.conversation) {
     const group = conversations().find((g) => g.id === state.conversation);
-    const canReply = Boolean(group && /^\d{5,30}:\d{6,20}$/.test(group.id));
+    const canReply = Boolean(health.transport !== "web" && group && /^\d{5,30}:\d{6,20}$/.test(group.id));
     return title(group ? groupName(group) : "Konuşma bulunamadı", "Son 150 mesajdan bu sohbete ait kayıtlar.",
       button("Mesajları yenile", 'data-refresh') + button("Listeye dön", 'data-route="conversations"')) +
       '<section class="card">' + (group ?
@@ -193,7 +257,8 @@ async function fillApprovals(request) {
     (a.status === "pending" ? '<div class="actions">' +
     button("Onayla", 'data-approval="' + esc(a.id) + '" data-action="approve"', "primary") +
     button("Reddet", 'data-approval="' + esc(a.id) + '" data-action="reject"') + '</div>' :
-    a.status === "approved" ? (health.configured?.metaSend ?
+    a.status === "approved" ? (health.transport === "web" ?
+      '<span class="tag yellow">WhatsApp Web yerel gönderimi kapalı</span>' : health.configured?.metaSend ?
       button("WhatsApp’a gönder", 'data-send="' + esc(a.id) + '"', "primary") :
       '<span class="tag yellow">Meta gönderim bağlantısı bekleniyor</span>') :
     '<span class="tag ' + (a.status === "sent" ? "green" : "yellow") + '">' +
@@ -367,6 +432,85 @@ function bindActions() {
     } finally { runFixture.disabled = false; }
   };
   document.querySelectorAll("[data-route]").forEach((element) => element.onclick = () => navigate(element.dataset.route));
+  if (state.route === "waweb-schedule") {
+    const reloadSchedulePage = async () => {
+      const data = await api("/api/admin/local-whatsapp-schedules");
+      page.innerHTML = whatsappWebSchedulePage(data);
+      bindActions();
+    };
+    document.querySelectorAll("[data-waweb-new]").forEach((element) => element.onclick = () => whatsappWebScheduleEditor());
+    document.querySelectorAll("[data-waweb-edit]").forEach((element) => element.onclick = async () => {
+      try {
+        const data = await api("/api/admin/local-whatsapp-schedules");
+        whatsappWebScheduleEditor((data.schedules || []).find((row) => row.id === element.dataset.wawebEdit) || {});
+      } catch (error) { notice(errorText(error.code)); }
+    });
+    document.querySelectorAll("[data-waweb-pause]").forEach((element) => element.onclick = async () => {
+      element.disabled = true;
+      try {
+        await api("/api/admin/local-whatsapp-schedules", { method: "POST", body: JSON.stringify({ action: element.dataset.wawebPause }) });
+        await reloadSchedulePage();
+        notice("Ajan durumu kaydedildi. Gerçek gönderim kapalı kalır.");
+      } catch (error) { notice(errorText(error.code)); element.disabled = false; }
+    });
+    document.querySelectorAll("[data-waweb-resolve]").forEach((element) => element.onclick = async () => {
+      const resolution = element.dataset.wawebResolve;
+      if (resolution === "confirm_sent" && !confirm("WhatsApp Web’de bu mesajın gönderildiğini gördün mü? Yalnızca gördüysen onayla.")) return;
+      element.disabled = true;
+      try {
+        await api("/api/admin/local-whatsapp-schedules", { method: "POST", body: JSON.stringify({ action: "resolve-outbox", job_id: element.dataset.id, resolution }) });
+        await reloadSchedulePage(); notice("Kuyruk kaydı elle uzlaştırıldı.");
+      } catch (error) { notice(errorText(error.code)); element.disabled = false; }
+    });
+    const armButton = document.querySelector("[data-waweb-arm]");
+    if (armButton) armButton.onclick = async () => {
+      const phrase = prompt("WhatsApp Web’de grup başlıklarını ve kuru çalışma taslaklarını doğruladıysan ALICI_VE_KURU_CALISMA_DOGRULANDI yaz.");
+      if (phrase !== "ALICI_VE_KURU_CALISMA_DOGRULANDI") return;
+      armButton.disabled = true;
+      try {
+        await api("/api/admin/local-whatsapp-schedules", { method: "POST", body: JSON.stringify({ action: "arm-live-send", confirmation: phrase }) });
+        await reloadSchedulePage(); notice("Canlı gönderim kapısı açıldı.");
+      } catch (error) { notice(errorText(error.code)); armButton.disabled = false; }
+    };
+    const approvalForm = document.getElementById("wawebApprovalChatForm");
+    if (approvalForm) approvalForm.onsubmit = async (event) => {
+      event.preventDefault();
+      try {
+        await api("/api/admin/local-whatsapp-schedules", { method: "POST", body: JSON.stringify({ action: "set-approval-chat", chat_name: approvalForm.elements.chat_name.value }) });
+        notice("Onay grubu adı taslak ayar olarak kaydedildi.");
+      } catch (error) { notice(errorText(error.code)); }
+    };
+    const previewForm = document.getElementById("wawebPreviewForm");
+    if (previewForm) previewForm.onsubmit = async (event) => {
+      event.preventDefault();
+      const submit = previewForm.querySelector('[type="submit"]');
+      const resultNode = document.getElementById("wawebPreviewResult");
+      submit.disabled = true;
+      resultNode.textContent = "Taslaklar hazırlanıyor…";
+      try {
+        const result = await api("/api/admin/local-whatsapp-schedules", { method: "POST", body: JSON.stringify({ action: "preview-day", date: previewForm.elements.date.value }) });
+        resultNode.innerHTML = (result.preview || []).map((item) => '<article class="coord-occurrence"><div><strong>' + esc(item.at) + ' · ' + esc(item.to) + '</strong><span class="tag yellow">' + esc(item.kind) + '</span><p>' + esc(item.condition) + '</p><p>' + esc(item.text) + '</p></div></article>').join("") || '<div class="empty">Bu tarihte etkin eşleme yok.</div>';
+        notice("Kuru çalışma hazırlandı. Mesaj gönderilmedi.");
+      } catch (error) { resultNode.textContent = errorText(error.code); }
+      finally { submit.disabled = false; }
+    };
+    document.querySelectorAll("[data-waweb-cancel]").forEach((element) => element.onclick = () => document.getElementById("wawebEditor").hidden = true);
+    const scheduleForm = document.getElementById("wawebScheduleForm");
+    if (scheduleForm) scheduleForm.onsubmit = async (event) => {
+      event.preventDefault();
+      const form = scheduleForm;
+      const schedule = { id: form.dataset.id || undefined, group_name: form.elements.group_name.value,
+        teacher_name: form.elements.teacher_name.value, weekday: Number(form.elements.weekday.value),
+        class_time: form.elements.class_time.value, checkin_time: form.elements.checkin_time.value,
+        response_deadline: form.elements.response_deadline.value, preclass_minutes: Number(form.elements.preclass_minutes.value),
+        enabled: form.elements.enabled.checked };
+      const submit = form.querySelector('[type="submit"]'); submit.disabled = true;
+      try {
+        await api("/api/admin/local-whatsapp-schedules", { method: "POST", body: JSON.stringify({ action: "save-schedule", schedule }) });
+        await reloadSchedulePage(); notice("Ders eşlemesi taslak olarak kaydedildi; WhatsApp’a mesaj gönderilmedi.");
+      } catch (error) { notice(errorText(error.code)); submit.disabled = false; }
+    };
+  }
   document.querySelectorAll("[data-open-conversation]").forEach((element) => element.onclick = () =>
     navigate("conversations", element.dataset.openConversation));
   document.querySelectorAll("[data-refresh]").forEach((element) => element.onclick = () => {
@@ -520,6 +664,19 @@ async function render() {
       if (request !== state.request) return;
       state.teacherFixtures = data.fixtures || [];
       page.innerHTML = teacherConfirmPage(state.teacherFixtures);
+      bindActions();
+    } catch (error) {
+      if (request === state.request) page.innerHTML = '<div class="warning">' + esc(errorText(error.code)) + '</div>';
+    }
+    return;
+  }
+  if (state.route === "waweb-schedule") {
+    try {
+      const data = await api("/api/admin/local-whatsapp-schedules");
+      if (request !== state.request) return;
+      document.getElementById("connectionPill").textContent = "WhatsApp Web · hazırlık / gönderim kapalı";
+      document.getElementById("connectionNote").textContent = "Yerel tarayıcı ajanı alım prototipi. Bu ekrandan WhatsApp mesajı gönderilmez.";
+      page.innerHTML = whatsappWebSchedulePage(data);
       bindActions();
     } catch (error) {
       if (request === state.request) page.innerHTML = '<div class="warning">' + esc(errorText(error.code)) + '</div>';

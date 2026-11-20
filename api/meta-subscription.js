@@ -1,7 +1,9 @@
 import { requireAdmin, sameOrigin } from "../lib/auth.js";
+import { whatsappTransport } from "../lib/whatsapp-transport.js";
 import { subscriptionStatus, subscribeWaba } from "../lib/meta-subscription.js";
 
 export default async function handler(req, res) {
+  if (whatsappTransport() === "web") return res.status(404).json({ error: "not_found" });
   res.setHeader("Cache-Control", "no-store");
   if (req.method === "GET") {
     res.status(200).json(await subscriptionStatus());

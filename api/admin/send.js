@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { ensureSchema } from "../../lib/db.js";
 import { requireAdmin, sameOrigin } from "../../lib/auth.js";
+import { whatsappTransport } from "../../lib/whatsapp-transport.js";
 
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
@@ -14,6 +15,9 @@ export default async function handler(req, res) {
     return;
   }
   if (!requireAdmin(req, res)) return;
+  if (whatsappTransport() === "web") {
+    return res.status(409).json({ error: "whatsapp_web_sender_not_enabled", retryable: false });
+  }
   const { META_ACCESS_TOKEN: token, META_PHONE_NUMBER_ID: phoneId, META_GRAPH_API_VERSION: version } = process.env;
   if (!token || !phoneId || !/^v\d+\.\d+$/.test(version || "")) {
     res.status(503).json({ error: "meta_send_not_configured" });

@@ -1,7 +1,9 @@
 import { ensureSchema } from "../../lib/db.js";
 import { requireAdmin } from "../../lib/auth.js";
+import { localWhatsAppIngestConfigured, whatsappTransport } from "../../lib/whatsapp-transport.js";
 
 export default async function handler(req, res) {
+  const transport = whatsappTransport();
   res.setHeader("Cache-Control", "no-store");
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
@@ -20,7 +22,9 @@ export default async function handler(req, res) {
   res.status(200).json({
     databaseReady,
     openAIConfigured: Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_MODEL),
-    webhookConfigured: Boolean(process.env.META_APP_SECRET && process.env.META_WEBHOOK_VERIFY_TOKEN),
+    transport,
+    whatsappWebIngestConfigured: transport === "web" && localWhatsAppIngestConfigured(),
+    webhookConfigured: transport !== "web" && Boolean(process.env.META_APP_SECRET && process.env.META_WEBHOOK_VERIFY_TOKEN),
     outboundSending: false
   });
 }

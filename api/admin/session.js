@@ -1,6 +1,8 @@
 import { authConfigured, hasAdminSession } from "../../lib/auth.js";
+import { localWhatsAppIngestConfigured, whatsappTransport } from "../../lib/whatsapp-transport.js";
 
 export default function handler(req, res) {
+  const transport = whatsappTransport();
   res.setHeader("Cache-Control", "no-store");
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
@@ -9,12 +11,14 @@ export default function handler(req, res) {
   }
   res.status(200).json({
     authenticated: hasAdminSession(req),
+    transport,
+    whatsappWebIngestConfigured: transport === "web" && localWhatsAppIngestConfigured(),
     setup: {
       adminConfigured: authConfigured(),
       databaseConfigured: Boolean(process.env.DATABASE_URL),
       openAIConfigured: Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_MODEL),
-      webhookConfigured: Boolean(process.env.META_APP_SECRET && process.env.META_WEBHOOK_VERIFY_TOKEN),
-      outboundSending: Boolean(process.env.META_ACCESS_TOKEN && process.env.META_PHONE_NUMBER_ID && process.env.META_GRAPH_API_VERSION)
+      webhookConfigured: transport !== "web" && Boolean(process.env.META_APP_SECRET && process.env.META_WEBHOOK_VERIFY_TOKEN),
+      outboundSending: transport !== "web" && Boolean(process.env.META_ACCESS_TOKEN && process.env.META_PHONE_NUMBER_ID && process.env.META_GRAPH_API_VERSION)
     }
   });
 }

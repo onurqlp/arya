@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Arya yerel ajan ayarları</title>
+  <style>
+    body{font:14px system-ui,sans-serif;max-width:620px;margin:28px auto;padding:0 18px;color:#17212b}
+    label{display:block;font-weight:650;margin:16px 0 6px}input,textarea{box-sizing:border-box;width:100%;padding:10px;border:1px solid #9ba8b3;border-radius:7px;font:inherit}
+    textarea{min-height:130px}button{margin-top:18px;padding:10px 16px;border:0;border-radius:7px;background:#126b59;color:white;font-weight:700}
+    #status{min-height:20px;color:#334}
+  </style>
+</head>
+<body>
+  <h1>Arya yerel ajanı</h1>
+  <p>Yalnızca burada yazdığın sohbet adlarını dinler. Gelen metinleri Arya paneline aktarır; mesaj göndermez.</p>
+  <form id="settings">
+    <label for="endpoint">Arya paneli</label>
+    <input id="endpoint" value="https://arya-whatsapp-panel.vercel.app" readonly>
+    <label for="secret">Yerel ajan bağlantı anahtarı</label>
+    <input id="secret" type="password" autocomplete="off" minlength="32" required>
+    <label for="chats">İzlenecek sohbet adları (her satıra bir tane)</label>
+    <textarea id="chats" required></textarea>
+    <button type="submit">Ayarları kaydet</button>
+  </form>
+  <p id="status" role="status"></p>
+  <script src="options.js"></script>
+</body>
+</html>

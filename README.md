@@ -11,6 +11,16 @@
 
 Arya; WhatsApp konuşmalarını kaydetmek, seçilen mesajlardan özet ve yanıt taslağı üretmek ve her taslağı ekip onayına sunmak için hazırlanıyor.
 
+## WhatsApp Web yerel ajanı — GO1 geçişi
+
+- Önizleme dalında `local-whatsapp-agent/` yalnızca allowlist'te bulunan açık sohbetlerdeki yeni gelen metinleri gözler ve `api/local-whatsapp-ingest.js` üzerinden Arya mesaj tablosuna idempotent olarak kaydeder.
+- `/#whatsapp-web-dersleri` ekranında ayrı ders koordinatörü veritabanına elle grup/öğretmen/gün/saat eşlemesi kaydedilebilir. Teyit 09.00, yanıt son saati 12.00; ders öncesi hatırlatma varsayılanı 60 dakikadır. İlk kayıtlar ve ajan ayarları kapalı/duraklatılmış/kuru çalışma olarak başlar.
+- GO2 akışı: yerel ajan dakikalık alarmında 09.00 teyidini, 12.00 eskalasyonunu, açık onay sonrası grup ders saati duyurusunu ve ders öncesi hatırlatmayı ortak outbox'a idempotent işler olarak koyar. Beklenmedik yanıt ARYA ONAY'a kodlu inceleme olur; yanıt `#KOD metin` ile özgün öğretmen grubuna bağlanır.
+- Tek outbox aynı anda bir işi lease eder. Teslimi belirsiz veya lease'i zaman aşımına uğramış işler `uncertain` olur ve otomatik tekrar gönderilmez. Eklenti göndermeden önce hedef grubu arar ve sohbet başlığını birebir doğrular.
+- Tüm gönderim kapıları varsayılan kapalıdır. Canlı kapı ancak Web köprüsü yapılandırılmış, etkin dersler ve ARYA ONAY sunucu allowlist'inde ve yönetici alıcı/taslak doğrulamasını açıkça yazmışsa açılır. Eklenti kurulumu ve canlı ortam henüz doğrulanmadı.
+- Yeni deploylarda taşıma varsayılanı `web`; Meta ancak açıkça `ARYA_WHATSAPP_TRANSPORT=meta` seçilirse kullanılır. Vercel ortam değişkenleri veya üretim deployment'ı değiştirilmedi. Web alımı yalnızca `ARYA_LOCAL_WHATSAPP_ENABLED`, ayrı HMAC anahtarı ve sunucu allowlist'i birlikte hazırsa açılır; gönderim ayrıca admin canlı kapısı ister.
+- Kurulum, izin kapsamı ve belirsiz alım davranışı: [docs/local-whatsapp-agent.md](docs/local-whatsapp-agent.md).
+
 ## Mevcut durum
 
 - Genel bakış, konuşmalar, analizler ve raporlar Neon'daki gerçek kayıtları gösterir. Yeni kurulumda kayıt bulunana kadar sıfır/boş durum görünür. Sayfalar yönetici oturumu gerektirir.

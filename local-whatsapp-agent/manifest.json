@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Arya WhatsApp Web Yerel Ajanı",
+  "version": "0.1.0",
+  "description": "Allowlist içindeki WhatsApp Web mesajlarını Arya'ya alır ve yalnızca doğrulanmış, merkezi onaylı kuyruk işlerini gönderir.",
+  "permissions": ["storage", "alarms", "tabs"],
+  "host_permissions": [
+    "https://web.whatsapp.com/*",
+    "https://arya-whatsapp-panel.vercel.app/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "Arya yerel ajanı", "default_popup": "options.html" },
+  "options_page": "options.html",
+  "content_scripts": [{
+    "matches": ["https://web.whatsapp.com/*"],
+    "js": ["content.js"],
+    "run_at": "document_idle"
+  }]
+}
