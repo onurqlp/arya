@@ -1,6 +1,7 @@
 (() => {
   const seen = new Set();
   let allowedChats = new Set();
+  let schedules = [];
   let observing = false;
 
   const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
@@ -32,6 +33,15 @@
   async function observe(node) {
     const chatName = activeChatName();
     if (!chatName || (!allowedChats.has("*") && !allowedChats.has(chatName.normalize("NFC").toLocaleLowerCase("tr-TR")))) return;
+    const chatKey = chatName.normalize("NFC").toLocaleLowerCase("tr-TR");
+    const weekday = new Date().toLocaleDateString("en-US", { timeZone: "Europe/Istanbul", weekday: "short" });
+    const weekdayNumber = ({ Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 })[weekday];
+    const now = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Istanbul", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
+    const candidatesForChat = schedules.filter((item) => item.enabled &&
+      clean(item.teacher_chat_name).normalize("NFC").toLocaleLowerCase("tr-TR") === chatKey &&
+      Number(item.weekday) === weekdayNumber && now >= item.checkin_time && now <= item.response_deadline);
+    if (candidatesForChat.length !== 1) return;
+    const schedule = candidatesForChat[0];
     const candidates = new Set();
     const parentMessage = node.closest?.('[data-id].message-in');
     if (parentMessage) candidates.add(parentMessage);
@@ -44,14 +54,18 @@
       seen.add(waId);
       if (seen.size > 1000) seen.delete(seen.values().next().value);
       const messageId = await hashMessageId(waId);
-      const payload = { messageId, chatName, senderName: visibleSenderName(item), body, messageTime: new Date().toISOString() };
-      const submit = (attempt = 0) => chrome.runtime.sendMessage({ type: "ARYA_INBOUND_MESSAGE", payload }, (result) => {
-        if (chrome.runtime.lastError || (!result?.ok && !result?.duplicate && !result?.skipped)) {
-          if (attempt < 12) setTimeout(() => submit(attempt + 1), 10000);
-          return;
-        }
-      });
-      submit();
+      const senderName = visibleSenderName(item);
+      const senderMatches = !senderName || senderName.normalize("NFC").toLocaleLowerCase("tr-TR") ===
+        clean(schedule.teacher_name).normalize("NFC").toLocaleLowerCase("tr-TR");
+      const explicit = /^(?:ok|tamam|evet)[.!?]*$/u.test(body.normalize("NFKC").trim().toLocaleLowerCase("tr-TR"));
+      const payload = {
+        scheduleId: schedule.id,
+        messageId,
+        messageTime: new Date().toISOString(),
+        decision: senderMatches && explicit ? "confirmed" : "needs_human_review",
+        reason: !senderMatches ? "teacher_chat_or_sender_mismatch" : explicit ? "explicit_confirmation" : "non_explicit_reply"
+      };
+      chrome.runtime.sendMessage({ type: "ARYA_TEACHER_DECISION", payload });
     }
   }
 
@@ -144,6 +158,7 @@
   function start() {
     chrome.runtime.sendMessage({ type: "ARYA_GET_CONFIG" }, (reply) => {
       allowedChats = new Set((reply?.allowedChats || []).map((name) => clean(name).normalize("NFC").toLocaleLowerCase("tr-TR")));
+      schedules = Array.isArray(reply?.schedules) ? reply.schedules : [];
       if (observing || !document.body) return;
       observing = true;
       // Baseline all already-rendered messages so refresh does not backfill chat history.
@@ -164,6 +179,11 @@
   else start();
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type === "ARYA_SET_SCHEDULES") {
+      schedules = Array.isArray(message.schedules) ? message.schedules : [];
+      sendResponse({ ok: true });
+      return false;
+    }
     if (message?.type !== "ARYA_SEND_OUTBOX_JOB") return;
     sendToActiveExactChat(message.job).then(sendResponse).catch(() => sendResponse({ outcome: "uncertain", error_code: "send_observation_failed" }));
     return true;

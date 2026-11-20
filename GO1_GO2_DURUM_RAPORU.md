@@ -1,3 +1,5 @@
+> TARİHSEL RAPOR — Aşağıdaki GO1/GO2 açıklamaları önceki tasarımı anlatır. Güncel davranış için README.md ve docs/local-whatsapp-agent.md dosyalarına bakın.
+
 # ARYA WhatsApp Web — GO 1 durumu / GO 2 başlangıç
 
 **Tarih:** 20 Kasım 2026 (Europe/Istanbul)

@@ -1,5 +1,5 @@
 import { authConfigured, hasAdminSession } from "../../lib/auth.js";
-import { localWhatsAppIngestConfigured, whatsappTransport } from "../../lib/whatsapp-transport.js";
+import { localWhatsAppAgentConfigured, whatsappTransport } from "../../lib/whatsapp-transport.js";
 
 export default function handler(req, res) {
   const transport = whatsappTransport();
@@ -12,11 +12,10 @@ export default function handler(req, res) {
   res.status(200).json({
     authenticated: hasAdminSession(req),
     transport,
-    whatsappWebIngestConfigured: transport === "web" && localWhatsAppIngestConfigured(),
+    whatsappWebAgentConfigured: transport === "web" && localWhatsAppAgentConfigured(),
     setup: {
       adminConfigured: authConfigured(),
       databaseConfigured: Boolean(process.env.DATABASE_URL),
-      openAIConfigured: Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_MODEL),
       webhookConfigured: false,
       outboundSending: false
     }

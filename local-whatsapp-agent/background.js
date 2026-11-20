@@ -1,6 +1,6 @@
 const SOURCE = "arya-whatsapp-web-local-agent";
-const MAX_QUEUE = 500;
-let flushing = false;
+const MAX_DECISIONS = 200;
+let flushingDecisions = false;
 let pollingOutbox = false;
 
 function storageGet(keys) {
@@ -14,20 +14,6 @@ function storageSet(value) {
 async function config() {
   const result = await storageGet(["config"]);
   return result.config || {};
-}
-
-function normalized(value) {
-  return String(value || "").normalize("NFC").replace(/\s+/g, " ").trim().toLocaleLowerCase("tr-TR");
-}
-
-function setBadge(text, color) {
-  chrome.action.setBadgeText({ text: text || "" });
-  if (color) chrome.action.setBadgeBackgroundColor({ color });
-}
-
-async function digestHex(value) {
-  const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 async function sign(timestamp, body, secret) {
@@ -49,72 +35,75 @@ async function signedAgentRequest(settings, payload) {
   });
 }
 
-async function enqueue(message) {
-  const settings = await config();
-  const allowed = new Set((settings.allowedChats || []).map(normalized));
-  if (!allowed.has("*") && !allowed.has(normalized(message.chatName))) return { ok: true, skipped: true };
-  const saved = await storageGet(["queue"]);
-  const queue = Array.isArray(saved.queue) ? saved.queue : [];
-  if (queue.some((item) => item.messageId === message.messageId)) return { ok: true, duplicate: true };
-  if (queue.length >= MAX_QUEUE) {
+function setBadge(text, color) {
+  chrome.action.setBadgeText({ text: text || "" });
+  if (color) chrome.action.setBadgeBackgroundColor({ color });
+}
+
+async function enqueueDecision(payload) {
+  if (!payload || !/^[0-9a-f-]{36}$/i.test(payload.scheduleId || "") ||
+      !/^waweb:[a-f0-9]{64}$/i.test(payload.messageId || "") ||
+      !["confirmed", "needs_human_review"].includes(payload.decision) ||
+      !["explicit_confirmation", "non_explicit_reply", "teacher_chat_or_sender_mismatch"].includes(payload.reason) ||
+      !Number.isFinite(Date.parse(payload.messageTime || ""))) return { ok: false };
+  const saved = await storageGet(["decisionQueue"]);
+  const queue = Array.isArray(saved.decisionQueue) ? saved.decisionQueue : [];
+  if (queue.some((item) => item.messageId === payload.messageId)) return { ok: true, duplicate: true };
+  if (queue.length >= MAX_DECISIONS) {
     setBadge("!", "#9c3b3b");
     return { ok: false, overflow: true };
   }
-  queue.push(message);
-  await storageSet({ queue });
-  await flushQueue();
+  queue.push({
+    scheduleId: payload.scheduleId,
+    messageId: payload.messageId,
+    messageTime: payload.messageTime,
+    decision: payload.decision,
+    reason: payload.reason
+  });
+  await storageSet({ decisionQueue: queue });
+  flushDecisions();
   return { ok: true, queued: true };
 }
 
-async function flushQueue() {
-  if (flushing) return;
-  flushing = true;
+async function flushDecisions() {
+  if (flushingDecisions) return;
+  flushingDecisions = true;
+  let acceptedDecision = false;
   try {
     const settings = await config();
-    const endpoint = String(settings.endpoint || "").replace(/\/+$/, "");
-    const queueState = await storageGet(["queue"]);
-    const queue = Array.isArray(queueState.queue) ? queueState.queue : [];
-    if (!/^https:\/\/arya-whatsapp-panel\.vercel\.app$/.test(endpoint) || !settings.secret || settings.secret.length < 32 || !settings.allowedChats?.length) {
-      setBadge("!", "#9c3b3b");
-      return;
+    if (!settings.endpoint || !settings.secret || !settings.agentId) return;
+    const saved = await storageGet(["decisionQueue"]);
+    const queue = Array.isArray(saved.decisionQueue) ? saved.decisionQueue : [];
+    while (queue.length) {
+      const event = queue[0];
+      let response;
+      try {
+        response = await signedAgentRequest(settings, { action: "teacher-decision", ...event });
+      } catch {
+        setBadge("!", "#9c3b3b");
+        return;
+      }
+      if (!response.ok) {
+        setBadge("!", "#9c3b3b");
+        return;
+      }
+      acceptedDecision = true;
+      queue.shift();
+      await storageSet({ decisionQueue: queue });
     }
-    if (!queue.length) {
-      setBadge("", null);
-      return;
-    }
-    const batch = queue.slice(0, 20);
-    const payload = { source: SOURCE, agent_id: settings.agentId, messages: batch };
-    const serialized = JSON.stringify(payload);
-    const timestamp = String(Math.floor(Date.now() / 1000));
-    const signature = await sign(timestamp, serialized, settings.secret);
-    const response = await fetch(endpoint + "/api/local-whatsapp-ingest", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Arya-Timestamp": timestamp, "X-Arya-Signature": signature },
-      body: serialized,
-      signal: AbortSignal.timeout(15000)
-    });
-    if (!response.ok) {
-      setBadge("!", "#9c3b3b");
-      return;
-    }
-    const accepted = new Set(batch.map((item) => item.messageId));
-    const latest = await storageGet(["queue"]);
-    const remaining = (latest.queue || []).filter((item) => !accepted.has(item.messageId));
-    await storageSet({ queue: remaining });
-    setBadge(remaining.length ? String(Math.min(remaining.length, 99)) : "", "#287a5d");
-  } catch {
-    setBadge("!", "#9c3b3b");
+    setBadge("", null);
   } finally {
-    flushing = false;
+    flushingDecisions = false;
   }
+  if (acceptedDecision) pollOutbox();
 }
 
-function ensurePollAlarm() { chrome.alarms.create("arya-local-whatsapp-flush", { periodInMinutes: 1 }); }
+function ensurePollAlarm() { chrome.alarms.create("arya-local-whatsapp-agent", { periodInMinutes: 1 }); }
 chrome.runtime.onInstalled.addListener(ensurePollAlarm);
 chrome.runtime.onStartup.addListener(ensurePollAlarm);
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === "arya-local-whatsapp-flush") {
-    flushQueue();
+  if (alarm.name === "arya-local-whatsapp-agent") {
+    flushDecisions();
     pollOutbox();
   }
 });
@@ -129,6 +118,10 @@ async function pollOutbox() {
     const response = await signedAgentRequest(settings, { action: "pull", whatsapp_tab_open: Boolean(tabs.length) });
     if (!response.ok) { setBadge("!", "#9c3b3b"); return; }
     const result = await response.json().catch(() => ({}));
+    await storageSet({ schedules: Array.isArray(result.schedules) ? result.schedules : [] });
+    for (const tab of tabs) {
+      chrome.tabs.sendMessage(tab.id, { type: "ARYA_SET_SCHEDULES", schedules: result.schedules || [] }).catch(() => {});
+    }
     if (!result.job) return;
     const tab = tabs[0];
     if (!tab?.id) {
@@ -152,15 +145,22 @@ async function pollOutbox() {
     pollingOutbox = false;
   }
 }
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!message || typeof message !== "object") return;
   if (message.type === "ARYA_GET_CONFIG") {
-    config().then((settings) => sendResponse({ allowedChats: settings.allowedChats || [], configured: Boolean(settings.endpoint && settings.secret) }))
-      .catch(() => sendResponse({ allowedChats: [], configured: false }));
+    storageGet(["schedules"]).then(async (saved) => {
+      const settings = await config();
+      sendResponse({
+        allowedChats: settings.allowedChats || [],
+        schedules: Array.isArray(saved.schedules) ? saved.schedules : [],
+        configured: Boolean(settings.endpoint && settings.secret)
+      });
+    }).catch(() => sendResponse({ allowedChats: [], schedules: [], configured: false }));
     return true;
   }
-  if (message.type === "ARYA_INBOUND_MESSAGE") {
-    enqueue(message.payload).then(sendResponse).catch(() => sendResponse({ ok: false }));
+  if (message.type === "ARYA_TEACHER_DECISION") {
+    enqueueDecision(message.payload).then(sendResponse).catch(() => sendResponse({ ok: false }));
     return true;
   }
   if (message.type === "ARYA_SAVE_CONFIG") {
@@ -176,13 +176,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       const agentId = existing.agentId || "arya-local-" + crypto.randomUUID().slice(0, 8);
       storageSet({ config: { endpoint, secret, allowedChats, agentId } }).then(() => {
         sendResponse({ ok: true });
-        flushQueue();
+        flushDecisions();
+        pollOutbox();
       }).catch(() => sendResponse({ ok: false }));
     }).catch(() => sendResponse({ ok: false }));
-    return true;
-  }
-  if (message.type === "ARYA_FLUSH_QUEUE") {
-    flushQueue().then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
     return true;
   }
   if (message.type === "ARYA_POLL_OUTBOX") {

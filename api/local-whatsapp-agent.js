@@ -1,8 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { ensureSchema } from "../lib/db.js";
 import { getCoordinatorDb } from "../lib/coordinator-db.js";
-import { localWhatsAppIngestConfigured, whatsappTransport } from "../lib/whatsapp-transport.js";
-import { acknowledgeLocalWhatsAppJob, claimLocalWhatsAppJob, enqueueDueLocalWhatsAppJobs, ensureLocalWhatsAppOutboxSchema } from "../lib/local-whatsapp-outbox.js";
+import { localWhatsAppAgentConfigured, whatsappTransport } from "../lib/whatsapp-transport.js";
+import { acknowledgeLocalWhatsAppJob, claimLocalWhatsAppJob, enqueueDueLocalWhatsAppJobs, ensureLocalWhatsAppOutboxSchema, processLocalWhatsAppTeacherDecision } from "../lib/local-whatsapp-outbox.js";
 
 const SOURCE = "arya-whatsapp-web-local-agent";
 const AGENT_RE = /^arya-local-[a-z0-9-]{6,40}$/;
@@ -37,7 +36,7 @@ export default async function handler(req, res) {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "method_not_allowed" });
   }
-  if (whatsappTransport() !== "web" || !localWhatsAppIngestConfigured()) return res.status(404).json({ error: "not_found" });
+  if (whatsappTransport() !== "web" || !localWhatsAppAgentConfigured()) return res.status(404).json({ error: "not_found" });
   const secret = process.env.ARYA_LOCAL_WHATSAPP_INGEST_SECRET;
   const body = readBody(req);
   if (!body || !validSignature(req, body, secret)) return res.status(401).json({ error: "invalid_agent_signature" });
@@ -48,46 +47,48 @@ export default async function handler(req, res) {
     !UUID_RE.test(body.job_id || "") || !["sent", "uncertain", "blocked"].includes(body.outcome) ||
     (body.error_code !== undefined && (typeof body.error_code !== "string" || !/^[a-z0-9_-]{1,60}$/.test(body.error_code)))
   );
-  if (body.source !== SOURCE || !AGENT_RE.test(body.agent_id || "") || !["pull", "ack"].includes(body.action) || invalidPull || invalidAck) {
+  const decisionReasons = ["explicit_confirmation", "non_explicit_reply", "teacher_chat_or_sender_mismatch"];
+  const invalidDecision = body.action === "teacher-decision" && (
+    Object.keys(body).some((key) => !["source", "agent_id", "action", "scheduleId", "messageId", "messageTime", "decision", "reason"].includes(key)) ||
+    !/^[0-9a-f-]{36}$/i.test(body.scheduleId || "") || !/^waweb:[a-f0-9]{64}$/i.test(body.messageId || "") ||
+    !Number.isFinite(Date.parse(body.messageTime || "")) ||
+    !["confirmed", "needs_human_review"].includes(body.decision) || !decisionReasons.includes(body.reason)
+  );
+  if (body.source !== SOURCE || !AGENT_RE.test(body.agent_id || "") ||
+      !["pull", "ack", "teacher-decision"].includes(body.action) || invalidPull || invalidAck || invalidDecision) {
     return res.status(400).json({ error: "invalid_agent_request" });
   }
 
   try {
     const db = getCoordinatorDb();
     await ensureLocalWhatsAppOutboxSchema(db);
+    if (body.action === "teacher-decision") {
+      await db.query("INSERT INTO arya_web_agent_heartbeats (agent_id, last_seen, whatsapp_tab_open) VALUES ($1, NOW(), true) " +
+        "ON CONFLICT (agent_id) DO UPDATE SET last_seen = NOW(), whatsapp_tab_open = true", [body.agent_id]);
+      const result = await processLocalWhatsAppTeacherDecision(db, body);
+      return res.status(200).json({ accepted: true, decision: result.decision || (result.ignored ? "ignored" : "recorded"), duplicate: Boolean(result.duplicate) });
+    }
     if (body.action === "ack") {
-      const job = body.outcome === "sent"
-        ? (await db.query("SELECT chat_name, body FROM arya_web_outbox WHERE id = $1::uuid", [body.job_id]))[0]
-        : null;
       const acknowledged = await acknowledgeLocalWhatsAppJob(db, body.agent_id, body);
-      if (body.outcome === "sent" && job) {
-        try {
-          const panelDb = await ensureSchema();
-          const conversationId = "waweb:" + encodeURIComponent(job.chat_name);
-          await panelDb.query(
-            "INSERT INTO arya_outbound_messages (id, conversation_id, recipient_id, body, status, provider_message_id, sent_at) " +
-            "VALUES ($1, $2, $3, $4, 'sent', $5, NOW()) ON CONFLICT (id) DO NOTHING",
-            ["waweb-out:" + body.job_id, conversationId, "whatsapp-web:" + job.chat_name, job.body, "whatsapp-web:" + body.job_id],
-          );
-        } catch {
-          // The coordinator queue is already acknowledged; never re-send because dashboard archival failed.
-        }
-      }
       return res.status(200).json(acknowledged);
     }
     await db.query("INSERT INTO arya_web_agent_heartbeats (agent_id, last_seen, whatsapp_tab_open) VALUES ($1, NOW(), $2) " +
       "ON CONFLICT (agent_id) DO UPDATE SET last_seen = NOW(), whatsapp_tab_open = EXCLUDED.whatsapp_tab_open", [body.agent_id, body.whatsapp_tab_open]);
     const settings = (await db.query("SELECT paused, dry_run, send_enabled FROM arya_web_agent_settings WHERE id = 1"))[0];
-    if (!settings) return res.status(200).json({ job: null, sending_enabled: false });
+    const schedules = await db.query("SELECT id::text AS id, group_name, teacher_name, teacher_chat_name, weekday, " +
+      "to_char(checkin_time, 'HH24:MI') AS checkin_time, to_char(response_deadline, 'HH24:MI') AS response_deadline, " +
+      "to_char(class_time, 'HH24:MI') AS class_time, enabled FROM arya_web_schedules WHERE enabled = true");
+    if (!settings) return res.status(200).json({ job: null, schedules, sending_enabled: false });
     await enqueueDueLocalWhatsAppJobs(db);
     const result = await claimLocalWhatsAppJob(db, body.agent_id, settings);
+    result.schedules = schedules;
     if (result.job) {
       let allowlist = [];
       try { allowlist = JSON.parse(process.env.ARYA_LOCAL_WHATSAPP_ALLOWED_CHATS || "[]"); } catch {}
       const allowed = new Set(Array.isArray(allowlist) ? allowlist.map(normalized) : []);
       if (!allowed.has("*") && !allowed.has(normalized(result.job.chat_name))) {
         await acknowledgeLocalWhatsAppJob(db, body.agent_id, { job_id: result.job.id, outcome: "blocked", error_code: "chat_not_allowlisted" });
-        return res.status(200).json({ job: null, sending_enabled: result.sending_enabled, blocked: "chat_not_allowlisted" });
+        return res.status(200).json({ job: null, schedules, sending_enabled: result.sending_enabled, blocked: "chat_not_allowlisted" });
       }
     }
     return res.status(200).json(result);

@@ -1,6 +1,6 @@
 import { ensureSchema } from "../../lib/db.js";
 import { requireAdmin } from "../../lib/auth.js";
-import { localWhatsAppIngestConfigured, whatsappTransport } from "../../lib/whatsapp-transport.js";
+import { localWhatsAppAgentConfigured, whatsappTransport } from "../../lib/whatsapp-transport.js";
 
 export default async function handler(req, res) {
   const transport = whatsappTransport();
@@ -21,9 +21,8 @@ export default async function handler(req, res) {
   }
   res.status(200).json({
     databaseReady,
-    openAIConfigured: Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_MODEL),
     transport,
-    whatsappWebIngestConfigured: transport === "web" && localWhatsAppIngestConfigured(),
+    whatsappWebAgentConfigured: transport === "web" && localWhatsAppAgentConfigured(),
     webhookConfigured: false,
     outboundSending: false
   });

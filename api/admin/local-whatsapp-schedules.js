@@ -2,7 +2,7 @@ import { requireAdmin, sameOrigin } from "../../lib/auth.js";
 import { getCoordinatorDb } from "../../lib/coordinator-db.js";
 import { buildLocalWhatsAppDayPreview, listLocalWhatsAppSchedules, saveLocalWhatsAppSchedule, updateLocalWhatsAppSettings } from "../../lib/local-whatsapp-schedule.js";
 import { resolveLocalWhatsAppOutbox } from "../../lib/local-whatsapp-outbox.js";
-import { localWhatsAppIngestConfigured } from "../../lib/whatsapp-transport.js";
+import { localWhatsAppAgentConfigured } from "../../lib/whatsapp-transport.js";
 
 function readBody(req) {
   if (req.body && typeof req.body === "object" && !Array.isArray(req.body)) return req.body;
@@ -35,7 +35,7 @@ export default async function handler(req, res) {
       const parsed = JSON.parse(process.env.ARYA_LOCAL_WHATSAPP_ALLOWED_CHATS || "[]");
       if (Array.isArray(parsed)) allowedChats = parsed.filter((item) => typeof item === "string");
     } catch {}
-    if (body.action === "arm-live-send" && !localWhatsAppIngestConfigured()) {
+    if (body.action === "arm-live-send" && !localWhatsAppAgentConfigured()) {
       return res.status(409).json({ error: "whatsapp_local_agent_not_configured" });
     }
     const result = body.action === "save-schedule"

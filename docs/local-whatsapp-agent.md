@@ -1,40 +1,24 @@
-# Arya yerel WhatsApp Web ajanı
+# ARYA yerel WhatsApp Web ajanı
 
-Bu klasör, Chrome/Edge Manifest V3 yerel eklentisini içerir. Eklenti açık WhatsApp Web sekmesinde eşlenmiş ders akışını izler; bu site bir WhatsApp gelen kutusu değildir. Gelen mesajlar eski `arya_messages` sohbet arşivine kaydedilmez veya panelde listelenmez. Yerel alarm her dakika merkezi tek gönderim kuyruğunu kontrol eder. Kuyruk işi geldiyse doğru sohbeti arar, başlığı birebir doğrular ve tek gönderim denemesi yapar. Sohbet geçmişini başlangıçta içe aktarmaz; medya veya kişi numarası okumaz. WhatsApp Web'in resmi entegrasyon API'si değildir; DOM seçicileri değişebilir ve hesap kısıtlaması riski vardır.
+Chrome için Manifest V3 yerel eklentisi, kullanıcı açık bıraktığı WhatsApp Web oturumunda çalışır. Meta Cloud API ve WhatsApp sohbet gelen kutusu kullanılmaz.
 
-## İstenen ders teyit akışı
+## Veri akışı
 
-Hedef iş akışı: sabah teyit sorusu eşleştirilmiş öğretmenin birebir WhatsApp sohbetine gider; açık onay gelince ders saati sınıf grubuna yazılır ve ders öncesi hatırlatma gruba gider. Öğretmenin birebir sohbet başlığı çizelgeyle eşleşmezse, yanıt açık değilse veya saat çelişiyorsa insan kontrolü gerekir. Her gönderim önce hedef sohbet başlığıyla kuru çalışmada gösterilmeli. Tek bir ortak outbox kullanılmalı; gönderim sonucu belirsizse aynı işi otomatik tekrar göndermemeli.
+- Gelen sohbet geçmişi, ham mesaj metni, gönderen adı, sohbet başlığı, medya, çerez ve tarayıcı profili API'ye aktarılmaz.
+- Yalnızca etkin ders eşlemesindeki öğretmen birebir sohbetinde ve teyit penceresi içinde görünen yeni yanıt yerelde incelenir. Tam `ok`, `tamam`, `evet` açık teyit sayılır.
+- Panel/API'ye ders eşlemesi kimliği, SHA-256 mesaj özeti, zaman ve karar kodu gider. Bu, sohbet içeriği değildir; panel sadece programı, ajan bağlantısını ve teslimat durumunu gösterir.
+- Planlanan ders mesajı ve gönderim kuyruğu koordinatör veritabanında tutulur; yerel eklenti komutu Chrome'daki WhatsApp Web gönder düğmesiyle uygular. Kuyruk tektir. Belirsiz teslimat otomatik tekrarlanmaz.
 
-**Demo çizelgesi bu akış için kaynak değildir:** ders eşlemeleri yalnızca `/#whatsapp-web-dersleri` altındaki yerel ajan panelinden elle tanımlanır; eski demo programı ajan tarafından kullanılmaz.
+## Ders teyidi
 
-GO2 akışı etkinleştirildiğinde yerel dakikalık alarmı 09.00 birebir teyidini, 12.00 yanıtsızlık eskalasyonunu, açık onay sonrası grup duyurusunu ve teyit edilmiş ders için ders öncesi hatırlatmayı tek outbox'a koyar. `classifyLocalTeacherReply` öğretmenin birebir sohbet başlığını ve varsa görünen gönderen adını çizelgeyle eşleştirmeden kabul etmez; yalnızca tam `ok`, `tamam`, `evet` (son noktalama işaretleri olabilir) açık teyittir. Diğer yanıtlar ARYA ONAY'a kodlu inceleme olur. Yanıt `#KOD metin` biçiminde geldiğinde açık incelemeye bağlanır.
+Eşlemeler panelde elle tanımlanır; saat dilimi Europe/Istanbul'dur. Ajan 09.00'da öğretmene teyit sorusu gönderir ve 12.00'ye kadar cevap bekler. Açık teyit alınırsa gruba ders saatini yazar ve ders öncesi hatırlatmayı planlar. Farklı, çelişkili veya yanlış sohbetten gelen yanıt insan kontrolüne kalır. Öğretmenin ham mesajı panel/ARYA ONAY'a kopyalanmaz; WhatsApp Web'den kontrol edilir.
 
-Outbox aynı anda tek işi lease eder. Lease süresi dolan veya sonucu belirsiz iş `uncertain` olur ve yeniden gönderilmez; yönetici WhatsApp Web'de kontrol edip elle uzlaştırır. Kuru çalışma alıcı başlığını ve mesajı gösterir. Canlı kapı varsayılan kapalıdır; Web taşıma yapılandırması, etkin eşlemelerin ve ARYA ONAY'ın sunucu allowlist'inde olması ve yöneticinin açık alıcı/taslak doğrulaması olmadan açılmaz.
+## Kurulum
 
-## Sunucu yapılandırması
+1. Bu klasörü Chrome'da yerel, paketlenmemiş eklenti olarak yükle.
+2. Eklenti seçeneklerinde `https://arya-whatsapp-panel.vercel.app`, Vercel'de önceden tanımlanmış HMAC anahtarı ve sohbet kapsamı `*` olsun. Anahtar git'e veya sohbete yazılmaz.
+3. Vercel'de `ARYA_LOCAL_WHATSAPP_ENABLED=true`, `ARYA_WHATSAPP_TRANSPORT=web`, `ARYA_LOCAL_WHATSAPP_ALLOWED_CHATS=["*"]` ve mevcut kurulumla uyumlu en az 32 karakterli `ARYA_LOCAL_WHATSAPP_INGEST_SECRET` tanımlı olmalıdır. `INGEST` eski ortam değişkeni adıdır; bu uç nokta sohbet içeriği kabul etmez.
+4. Chrome ve zaten açık WhatsApp Web oturumu açık kalsın. Eklenti güncellemesinden sonra eklentiyi yenile, WhatsApp Web sekmesini normal şekilde yenile. Çıkış yapma ve yeni QR başlatma.
+5. Panelde öğretmen birebir sohbet başlığını, görünen öğretmen adını, sınıf grup başlığını, gün ve saatleri eşle. Önizleme ve alıcı başlıklarını gözden geçir. Canlı gönderim varsayılan olarak kapalıdır.
 
-Üretim paneli `https://arya-whatsapp-panel.vercel.app/` adresindedir ve Web taşımasını kullanır. Şu an üretim health yanıtı yerel WhatsApp Web ingest ayarının tamamlanmadığını gösteriyordu; yeni site sürümü bu durumu açıkça gösterecek. Yerel köprünün açılması için üretimde aşağıdaki ayarlar gerekir:
-
-- `ARYA_LOCAL_WHATSAPP_ENABLED=true`
-- `ARYA_LOCAL_WHATSAPP_INGEST_SECRET`: en az 32 karakterlik rastgele değer
-- `ARYA_LOCAL_WHATSAPP_ALLOWED_CHATS`: öğretmen birebir sohbetleri, sınıf grupları ve ARYA ONAY başlığından oluşan JSON dizisi; ör. `["Öğretmen başlığı", "Sınıf grubu", "ARYA ONAY"]`
-
-Gönderim için ayrıca bu PC'deki yerel ajan son iki dakika içinde WhatsApp Web sekmesi gördüğünü bildirmeli; ayrı koordinatör DB'de panelden kaydedilmiş onay grubu ve etkin ders eşlemeleri sunucu allowlist'iyle aynı olmalıdır. Panelin canlı kapısı bunları ve yönetici tarafından girilen alıcı/kuru çalışma doğrulama ifadesini kontrol eder. Save/pause/grup adı değişimi canlı ayarını tekrar kapatır.
-
-Bu ayarların hazır olduğunu doğrulamadan canlı gönderim açılmaz. Gizli değerleri Git'e veya sohbete ekleme.
-
-## Yerel eklenti kurulumu
-
-1. Eklenti kurulumunu yetkili tarayıcı eklenti arayüzünden yap; başka tarayıcı profiline veya WhatsApp profil deposuna erişme.
-2. `options.html` ayarlarında üretim endpoint'ini, ingest anahtarını, yerel ajan kimliğini ve izin verilen sohbet başlıklarını gir.
-3. Mevcut `web.whatsapp.com` sekmesini yenile; yeni QR oturumu başlatma.
-4. Panelde yerel ajan çevrimiçi durumunu ve kuru çalışma taslaklarını doğrula. WhatsApp sohbet içeriği panelde gösterilmez. Canlı kapıyı açmadan önce tüm sohbet başlıklarını ve kuru çalışma taslaklarını tek tek gözden geçir.
-
-## Teslimat davranışı
-
-İleti kimliği tarayıcıda SHA-256 ile özetlenir; ayrı ders işleme tablosundaki benzersiz kimlik yinelenen olayları engeller. Yerel alım kuyruğu 500 olayla sınırlandırılır; dolduğunda eski olayları sessizce silmez ve rozet uyarısı verir. Gecikmiş olay 24 saat içinde kabul edilir, gelecekte 5 dakikadan fazla olan damga reddedilir. Outbox işi idempotency anahtarıyla saklanır; teslimi belirsiz iş otomatik tekrar edilmez.
-
-## Veritabanı kurulumu
-
-`db/migrations/001_local_whatsapp_agent.sql` bir kez Neon veritabanı sahibiyle uygulanır. Vercel uygulama rolüne yalnızca bu ajan tablolarında `SELECT/INSERT/UPDATE/DELETE` verilir; uygulama istekleri tablo oluşturmaya veya değiştirmeye çalışmaz. Bu, runtime rolünde `42501 insufficient_privilege` hatasını önler.
+Gelen metin DOM seçicilerinde yerelde okunur. WhatsApp Web arayüzü değişirse ajan durabilir. Bu, WhatsApp'ın resmî otomasyon arayüzü değildir ve hesap kısıtlaması riski vardır.

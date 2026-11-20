@@ -1,5 +1,5 @@
 const page = document.getElementById("page");
-const routeByHash = { "#whatsapp-web-dersleri": "waweb-schedule", "#konusmalar": "conversations" };
+const routeByHash = { "#whatsapp-web-dersleri": "waweb-schedule" };
 const state = { route: routeByHash[location.hash] || "waweb-schedule", conversation: null, approvalStatus: "pending", search: "", request: 0, teacherFixtures: [] };
 let session = { authenticated: false, setup: {} };
 let health = {};
@@ -74,7 +74,7 @@ function navigate(route, conversation = null) {
   state.route = route;
   state.conversation = conversation;
   state.search = "";
-  const routeHashes = { operations: "#kurum-takip", "teacher-confirm": "#ders-teyit", conversations: "#konusmalar", "waweb-schedule": "#whatsapp-web-dersleri", "coord-schedule": "#ders-programi", "coord-queue": "#ders-kuyrugu", "coord-health": "#ders-saglik", "coord-history": "#ders-gecmis" };
+  const routeHashes = { operations: "#kurum-takip", "teacher-confirm": "#ders-teyit", "waweb-schedule": "#whatsapp-web-dersleri", "coord-schedule": "#ders-programi", "coord-queue": "#ders-kuyrugu", "coord-health": "#ders-saglik", "coord-history": "#ders-gecmis" };
   if (routeHashes[route]) history.replaceState(null, "", routeHashes[route]);
   else if (Object.values(routeHashes).includes(location.hash)) history.replaceState(null, "", location.pathname + location.search);
   document.getElementById("sidebar").classList.remove("open");
@@ -84,7 +84,7 @@ function navigate(route, conversation = null) {
 function setNavigation() {
   const labels = { overview: "ARYA Yerel Ajanı", conversations: "ARYA Yerel Ajanı", approvals: "ARYA Yerel Ajanı",
     insights: "Analiz ve Bulgular", reports: "Raporlar", operations: "Kurum Takip", "teacher-confirm": "Ders Teyidi",
-    "waweb-schedule": "ARYA Yerel Ajanı", conversations: "Konuşmalar",
+    "waweb-schedule": "ARYA Yerel Ajanı",
     "coord-schedule": "Ders Programı", "coord-queue": "Görev Kuyruğu", "coord-health": "Sistem Sağlığı",
     "coord-history": "Geçmiş / Alarmlar", setup: "Sistem Durumu" };
   document.getElementById("crumb").textContent = labels[state.route] || "ARYA Yerel Ajanı";
@@ -102,8 +102,8 @@ function whatsappWebSchedulePage(data) {
     '<td><span class="tag ' + (item.status === 'sent' ? 'green' : ['uncertain','blocked'].includes(item.status) ? 'red' : 'yellow') + '">' + esc(item.status) + '</span><br>' + esc(item.outcome_code || '') + '</td>' +
     '<td>' + (['uncertain','blocked'].includes(item.status) ? '<button class="btn secondary" data-waweb-resolve="confirm_sent" data-id="' + esc(item.id) + '">Teslim edildi</button> <button class="btn secondary" data-waweb-resolve="cancel" data-id="' + esc(item.id) + '">İptal et</button>' : '—') + '</td></tr>').join("");
   const settings = data.settings || {};
-  return title("ARYA yerel WhatsApp Web ajanı", "Açık WhatsApp Web oturumunda gözlemlenen yeni gelen metinler bu panele aktarılır. Eklenti erişim kapsamı tüm sohbetler (*) olarak ayarlanır.") +
-    '<div class="warning"><b>Tüm sohbet erişimi</b><span>Yeni gelen metinler açık WhatsApp Web sekmesinde ilgili sohbet görünürken ARYA gelen kutusuna kaydedilir. Eklenti mevcut ekranda görünen eski geçmişi geriye dönük yüklemez. Gönderim tek ortak kuyruktan geçer; canlı gönderim şu anda kapalıdır.</span></div>' +
+  return title("ARYA yerel WhatsApp Web ajanı", "Chrome açık WhatsApp Web oturumunda gelen yanıtı yerelde işler ve planlanan mesajları gönderir. Panel ders eşlemesi, ajan sağlığı ve teslim durumunu izler.") +
+    '<div class="warning"><b>Gelen konuşma metni bu bilgisayarda kalır</b><span>Gelen mesaj veya sohbet geçmişi API’ye aktarılmaz ve panelde gösterilmez. Sunucu yalnız ders teyidi sonucunu ve gönderim durumunu kaydeder; planlanan ders mesajı bu bilgisayardaki WhatsApp Web oturumuna gönderim işi olarak iletilir.</span></div>' +
     '<div class="grid split"><section class="card"><div class="cardhead"><div><h2>Haftalık öğretmen / grup eşlemesi</h2><p>Öğretmen birebir sohbeti ve sınıf grubu başlıklarını WhatsApp’taki adlarıyla eşleştir.</p></div><button class="btn secondary" data-waweb-new>Yeni ders</button></div>' +
     '<div class="ops-table-wrap"><table class="table"><thead><tr><th>WhatsApp grubu / öğretmen</th><th>Ders</th><th>Teyit penceresi</th><th>Hatırlatma</th><th>Durum</th><th></th></tr></thead><tbody>' + (rows || '<tr><td colspan="6">Henüz eşleme yok. Yeni ders ile elle tanımla.</td></tr>') + '</tbody></table></div></section>' +
     '<section class="card"><div class="cardhead"><div><h2>İnsan kontrolü</h2><p>Beklenmedik/çelişkili yanıtlar için iç grup.</p></div></div>' +
@@ -138,16 +138,15 @@ function whatsappWebScheduleEditor(item = {}) {
 }
 function connection() {
   const db = Boolean(health.databaseReady);
-  const ai = Boolean(health.configured?.openAI);
   document.getElementById("connectionPill").innerHTML = '<i class="dot"></i> ' +
-    (health.configured?.whatsappWebIngest ? "WhatsApp Web köprüsü hazır" : "WhatsApp Web yerel ajanı bekleniyor");
+    (health.configured?.whatsappWebAgent ? "WhatsApp Web yerel ajanı hazır" : "WhatsApp Web yerel ajanı bekleniyor");
   document.getElementById("connectionNote").innerHTML = '<strong>● Gerçek veri alanı</strong>' +
     (db ? "ARYA panel veritabanı hazır." : "ARYA panel veritabanı bekleniyor.") + "<br>" +
-    (ai ? "OpenAI bağlantısı hazır." : "OpenAI bağlantısı bekleniyor.");
+    (health.configured?.whatsappWebAgent ? "Yerel Web ajan bağlantısı yapılandırıldı." : "Yerel Web ajan bağlantısı bekleniyor.");
   document.getElementById("logoutBtn").hidden = !session.authenticated;
 }
 function login() {
-  page.innerHTML = title("Yönetici girişi", "Konuşmalar ve raporlar yalnızca yetkili oturumunda gösterilir.") +
+  page.innerHTML = title("Yönetici girişi", "ARYA ders programı ve yerel ajan durum paneli.") +
     '<section class="card auth-card">' +
     (!session.setup?.databaseConfigured ? '<div class="warning">Neon veritabanı bağlantısı bekleniyor.</div>' : "") +
     (!session.setup?.adminConfigured ? '<div class="warning">Yönetici parolası veya oturum anahtarı Vercel’de hazır değil.</div>' : "") +
@@ -170,7 +169,7 @@ async function load() {
   session = await api("/api/admin/session");
   health = await api("/api/health");
   connection();
-  summary = session.authenticated ? await api("/api/admin/summary") : null;
+  summary = null;
 }
 function conversations() {
   const groups = new Map();
@@ -290,12 +289,12 @@ function reports() {
 function setup() {
   const c = health.configured || {};
   const rows = [["ARYA veritabanı", health.databaseReady], ["Yönetici erişimi", health.adminReady],
-    ["OpenAI bağlantısı", c.openAI], ["Yerel WhatsApp Web köprüsü", c.whatsappWebIngest]];
-  return title("Sistem durumu", "ARYA yerel ajanının sunucu bağlantıları. Gizli anahtar değerleri gösterilmez.") +
+    ["Yerel WhatsApp Web ajanı", c.whatsappWebAgent]];
+  return title("Sistem durumu", "Panel, yerel ajan bağlantısı ve ders teslimat durumları. Gizli anahtar değerleri gösterilmez.") +
     '<section class="card">' + rows.map(([label, ready]) =>
       '<div class="setting"><strong>' + esc(label) + '</strong><span class="tag ' +
       (ready ? "green" : "yellow") + '">' + (ready ? "Hazır" : "Bekleniyor") + '</span></div>').join("") +
-    '</section><section class="card" style="margin-top:15px"><h2>Çalışma akışı</h2><p>ARYA, açık WhatsApp Web oturumunu bu PC’deki yerel eklenti üzerinden kullanır. Gönderimler tek ortak kuyruktan geçer; sonucu belirsiz kalan iş otomatik tekrar edilmez. Bu panel gelen mesajların gelen kutusu veya arşivi değildir.</p></section>';
+    '</section><section class="card" style="margin-top:15px"><h2>Çalışma akışı</h2><p>ARYA, açık Chrome WhatsApp Web oturumundaki mesajları yerelde işler. Panel ders programlarını ve gönderim durumlarını izler; mesaj içerikleri panele/API’ye aktarılmaz. Gönderimler tek ortak kuyruktan geçer; sonucu belirsiz kalan iş otomatik tekrar edilmez.</p></section>';
 }
 function teacherConfirmPage(fixtures) {
   const options = fixtures.map((item) =>
@@ -647,7 +646,7 @@ async function render() {
       const data = await api("/api/admin/local-whatsapp-schedules");
       if (request !== state.request) return;
       document.getElementById("connectionPill").innerHTML = '<i class="dot"></i> WhatsApp Web · ' + (data.agent?.agent_online ? "yerel ajan bağlı" : "yerel ajan bekleniyor");
-      document.getElementById("connectionNote").textContent = "Site sohbet kutusu değildir. WhatsApp Web bu PC’de açık olmalı; gönderimler tek kuyruktan geçer.";
+      document.getElementById("connectionNote").textContent = "Mesaj metinleri yerel Chrome oturumunda kalır. Panel yalnız eşlemeleri ve kuyruk durumunu izler.";
       page.innerHTML = whatsappWebSchedulePage(data);
       bindActions();
     } catch (error) {
