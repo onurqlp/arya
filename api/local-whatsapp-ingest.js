@@ -1,5 +1,4 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { ensureSchema, purgeExpired } from "../lib/db.js";
 import { localWhatsAppIngestConfigured } from "../lib/whatsapp-transport.js";
 import { getCoordinatorDb } from "../lib/coordinator-db.js";
 import { processLocalWhatsAppInbound } from "../lib/local-whatsapp-outbox.js";
@@ -68,23 +67,14 @@ export default async function handler(req, res) {
   }
 
   try {
-    const db = await ensureSchema();
-    await purgeExpired(db);
     const coordinatorDb = getCoordinatorDb();
-    let stored = 0;
+    let processed = 0;
     for (const message of messages) {
       const chatName = message.chatName.normalize("NFC").replace(/\s+/g, " ").trim();
-      const conversationId = "waweb:" + encodeURIComponent(chatName);
-      const rows = await db.query(
-        "INSERT INTO arya_messages (message_id, conversation_id, sender_id, sender_name, message_type, body, message_time) " +
-        "VALUES ($1, $2, 'whatsapp-web', $3, 'waweb-text', $4, $5::timestamptz) " +
-        "ON CONFLICT (message_id) DO NOTHING RETURNING message_id",
-        [message.messageId, conversationId, message.senderName?.trim() || "WhatsApp Web katılımcısı", message.body.trim(), message.messageTime],
-      );
-      stored += rows.length;
-      await processLocalWhatsAppInbound(coordinatorDb, { ...message, chatName });
+      const result = await processLocalWhatsAppInbound(coordinatorDb, { ...message, chatName });
+      if (!result.duplicate && !result.ignored) processed++;
     }
-    return res.status(200).json({ received: messages.length, stored, duplicates: messages.length - stored, sent: false });
+    return res.status(200).json({ received: messages.length, processed, sent: false });
   } catch {
     return res.status(503).json({ error: "storage_unavailable" });
   }

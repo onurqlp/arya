@@ -1,6 +1,6 @@
 const page = document.getElementById("page");
-const routeByHash = { "#kurum-takip": "operations", "#ders-teyit": "teacher-confirm", "#whatsapp-web-dersleri": "waweb-schedule", "#ders-programi": "coord-schedule", "#ders-kuyrugu": "coord-queue", "#ders-saglik": "coord-health", "#ders-gecmis": "coord-history" };
-const state = { route: routeByHash[location.hash] || "overview", conversation: null, approvalStatus: "pending", search: "", request: 0, teacherFixtures: [] };
+const routeByHash = { "#whatsapp-web-dersleri": "waweb-schedule" };
+const state = { route: routeByHash[location.hash] || "waweb-schedule", conversation: null, approvalStatus: "pending", search: "", request: 0, teacherFixtures: [] };
 let session = { authenticated: false, setup: {} };
 let health = {};
 let summary = null;
@@ -18,6 +18,7 @@ const errorText = (code) => ({
   login_temporarily_blocked: "Giriş denemeleri geçici olarak sınırlandı. 15 dakika sonra deneyin.",
   storage_unavailable: "Veritabanına ulaşılamadı.",
   openai_not_configured: "OpenAI anahtarı ve model adı henüz eklenmedi.",
+  "42501": "Veritabanı izinleri eksik. Sistem tabloları yönetici rolüyle kurulmalı; uygulama rolü yalnızca tablo işlemlerine sahip olmalı.",
   meta_send_not_configured: "Meta mesaj gönderim bilgileri henüz eklenmedi.",
   individual_conversation_required: "Yalnızca doğrulanmış bireysel sohbetlere gönderim destekleniyor.",
   invalid_whatsapp_schedule: "Grup, öğretmen, gün ve saat alanlarını kontrol edin.",
@@ -84,12 +85,12 @@ function navigate(route, conversation = null) {
   render();
 }
 function setNavigation() {
-  const labels = { overview: "Genel Bakış", conversations: "Konuşmalar", approvals: "Ekibe Danışma",
+  const labels = { overview: "ARYA Yerel Ajanı", conversations: "ARYA Yerel Ajanı", approvals: "ARYA Yerel Ajanı",
     insights: "Analiz ve Bulgular", reports: "Raporlar", operations: "Kurum Takip", "teacher-confirm": "Ders Teyidi",
-    "waweb-schedule": "WhatsApp Web Dersleri",
+    "waweb-schedule": "ARYA Yerel Ajanı",
     "coord-schedule": "Ders Programı", "coord-queue": "Görev Kuyruğu", "coord-health": "Sistem Sağlığı",
-    "coord-history": "Geçmiş / Alarmlar", setup: "Ajan ve Bağlantılar" };
-  document.getElementById("crumb").textContent = labels[state.route] || "Konuşma";
+    "coord-history": "Geçmiş / Alarmlar", setup: "Sistem Durumu" };
+  document.getElementById("crumb").textContent = labels[state.route] || "ARYA Yerel Ajanı";
   document.querySelectorAll("#nav button, .nav button").forEach((node) =>
     node.classList.toggle("active", node.dataset.page === state.route));
 }
@@ -104,8 +105,8 @@ function whatsappWebSchedulePage(data) {
     '<td><span class="tag ' + (item.status === 'sent' ? 'green' : ['uncertain','blocked'].includes(item.status) ? 'red' : 'yellow') + '">' + esc(item.status) + '</span><br>' + esc(item.outcome_code || '') + '</td>' +
     '<td>' + (['uncertain','blocked'].includes(item.status) ? '<button class="btn secondary" data-waweb-resolve="confirm_sent" data-id="' + esc(item.id) + '">Teslim edildi</button> <button class="btn secondary" data-waweb-resolve="cancel" data-id="' + esc(item.id) + '">İptal et</button>' : '—') + '</td></tr>').join("");
   const settings = data.settings || {};
-  return title("WhatsApp Web ders koordinasyonu", "09.00 teyidi öğretmenin birebir sohbetine gider; açık onay gelirse ders saati gruba yazılır. 12.00’ye kadar yanıt beklenir; hatırlatma varsayılan olarak 60 dakika öncedir.") +
-    '<div class="warning"><b>Güvenli hazırlık modu</b><span>Ajan duraklatıldı, kuru çalışma açık, gerçek gönderim kapalı. Bu paneldeki planlar demo ders programından ayrıdır. Henüz WhatsApp’a mesaj gönderilmez.</span></div>' +
+  return title("ARYA yerel WhatsApp Web ajanı", "Ajan açık WhatsApp Web sekmesini izler. Bu site sohbet kutusu değildir; burada yalnızca ders eşlemeleri, ajan durumu ve gönderim kuyruğu yönetilir.") +
+    '<div class="warning"><b>Mesaj kutusu yok</b><span>Gelen sohbetler bu sitede listelenmez veya eski ARYA konuşma arşivine yazılmaz. Yerel eklenti yalnızca eşlenmiş ders akışını işler. Otomatik gönderim başlangıçta duraklatılmış ve kuru çalışmadadır.</span></div>' +
     '<div class="grid split"><section class="card"><div class="cardhead"><div><h2>Haftalık öğretmen / grup eşlemesi</h2><p>Öğretmen birebir sohbeti ve sınıf grubu başlıklarını WhatsApp’taki adlarıyla eşleştir.</p></div><button class="btn secondary" data-waweb-new>Yeni ders</button></div>' +
     '<div class="ops-table-wrap"><table class="table"><thead><tr><th>WhatsApp grubu / öğretmen</th><th>Ders</th><th>Teyit penceresi</th><th>Hatırlatma</th><th>Durum</th><th></th></tr></thead><tbody>' + (rows || '<tr><td colspan="6">Henüz eşleme yok. Yeni ders ile elle tanımla.</td></tr>') + '</tbody></table></div></section>' +
     '<section class="card"><div class="cardhead"><div><h2>İnsan kontrolü</h2><p>Beklenmedik/çelişkili yanıtlar için iç grup.</p></div></div>' +
@@ -139,14 +140,13 @@ function whatsappWebScheduleEditor(item = {}) {
     '<label><input type="checkbox" name="enabled" ' + (item.enabled ? 'checked' : '') + '> Taslak planı etkinleştir</label><div class="coord-actions"><button class="btn primary" type="submit">Kaydet</button><button class="btn secondary" type="button" data-waweb-cancel>Vazgeç</button></div></form>';
 }
 function connection() {
-  const db = Boolean(health.databaseReady), meta = Boolean(health.webhookSubscriptionReady);
-  const endpoint = Boolean(health.webhookEndpointReady);
+  const db = Boolean(health.databaseReady);
   const ai = Boolean(health.configured?.openAI);
   document.getElementById("connectionPill").innerHTML = '<i class="dot"></i> ' +
-    (meta ? "WhatsApp bağlantısı hazır" : endpoint ? "Meta aboneliği bekleniyor" : db ? "Veritabanı hazır · WhatsApp bekleniyor" : "Kurulum bekleniyor");
+    (health.configured?.whatsappWebIngest ? "WhatsApp Web köprüsü hazır" : "WhatsApp Web yerel ajanı bekleniyor");
   document.getElementById("connectionNote").innerHTML = '<strong>● Gerçek veri alanı</strong>' +
-    (meta ? "Meta hesabı abone." : endpoint ? "Webhook adresi hazır; AYDA WP1 aboneliği doğrulanmadı." : "WhatsApp bağlantısı bekleniyor.") + "<br>" +
-    (ai ? "OpenAI taslak üretimi hazır." : "OpenAI bağlantısı bekleniyor.");
+    (db ? "ARYA panel veritabanı hazır." : "ARYA panel veritabanı bekleniyor.") + "<br>" +
+    (ai ? "OpenAI bağlantısı hazır." : "OpenAI bağlantısı bekleniyor.");
   document.getElementById("logoutBtn").hidden = !session.authenticated;
 }
 function login() {
@@ -173,7 +173,7 @@ async function load() {
   session = await api("/api/admin/session");
   health = await api("/api/health");
   connection();
-  if (session.authenticated) summary = await api("/api/admin/summary");
+  summary = null;
 }
 function conversations() {
   const groups = new Map();
@@ -292,23 +292,13 @@ function reports() {
 }
 function setup() {
   const c = health.configured || {};
-  const assetAccessDenied = health.metaSubscription?.metaCode === 100 && health.metaSubscription?.metaSubcode === 33;
-  const rows = [["Neon veritabanı", health.databaseReady], ["Yönetici erişimi", health.adminReady],
-    ["OpenAI anahtarı ve model", c.openAI], ["Meta webhook adresi", health.webhookEndpointReady],
-    ["AYDA WP1 webhook aboneliği", health.webhookSubscriptionReady],
-    ["WhatsApp mesaj gönderimi", health.outboundSending]];
-  return title("Ajan ve Bağlantılar", "Sunucu yapılandırmasının gerçek durumu. Anahtarlar burada gösterilmez.") +
+  const rows = [["ARYA veritabanı", health.databaseReady], ["Yönetici erişimi", health.adminReady],
+    ["OpenAI bağlantısı", c.openAI], ["Yerel WhatsApp Web köprüsü", c.whatsappWebIngest]];
+  return title("Sistem durumu", "ARYA yerel ajanının sunucu bağlantıları. Gizli anahtar değerleri gösterilmez.") +
     '<section class="card">' + rows.map(([label, ready]) =>
       '<div class="setting"><strong>' + esc(label) + '</strong><span class="tag ' +
       (ready ? "green" : "yellow") + '">' + (ready ? "Hazır" : "Bekleniyor") + '</span></div>').join("") +
-    '</section><section class="card" style="margin-top:15px"><h2>Meta abonelik kontrolü</h2><p>Durum: ' +
-    esc(health.metaSubscription?.state || "bilinmiyor") +
-    (health.metaSubscription?.metaCode ? ' · Meta kodu: ' + esc(health.metaSubscription.metaCode) : '') +
-    '</p>' + (assetAccessDenied ?
-      '<p class="warning">Bu jeton AYDA WP1 hesabını ve kayıtlı telefonu okuyamıyor. META_ACCESS_TOKEN değerini doğru sistem kullanıcısının WhatsApp varlık erişimiyle yeniden oluşturun.</p>' :
-      !health.webhookSubscriptionReady && c.metaSend ?
-      button("AYDA WP1 hesabını bağla", 'data-subscribe', "primary") : '') +
-    '</section><section class="card" style="margin-top:15px"><h2>Çalışma akışı</h2><p>Meta bağlantısı kurulunca imzalı yeni mesajlar kaydedilir. OpenAI bağlantısı eklenince yalnızca yönetici tarafından seçilen mesajlar analiz edilir. Taslak onayı kayıt durumunu değiştirir; gönderim açılana kadar WhatsApp’a yanıt gitmez.</p></section>';
+    '</section><section class="card" style="margin-top:15px"><h2>Çalışma akışı</h2><p>ARYA, açık WhatsApp Web oturumunu bu PC’deki yerel eklenti üzerinden kullanır. Gönderimler tek ortak kuyruktan geçer; sonucu belirsiz kalan iş otomatik tekrar edilmez. Bu panel gelen mesajların gelen kutusu veya arşivi değildir.</p></section>';
 }
 function teacherConfirmPage(fixtures) {
   const options = fixtures.map((item) =>
@@ -675,8 +665,8 @@ async function render() {
     try {
       const data = await api("/api/admin/local-whatsapp-schedules");
       if (request !== state.request) return;
-      document.getElementById("connectionPill").textContent = "WhatsApp Web · hazırlık / gönderim kapalı";
-      document.getElementById("connectionNote").textContent = "Yerel tarayıcı ajanı alım prototipi. Bu ekrandan WhatsApp mesajı gönderilmez.";
+      document.getElementById("connectionPill").innerHTML = '<i class="dot"></i> WhatsApp Web · ' + (data.agent?.agent_online ? "yerel ajan bağlı" : "yerel ajan bekleniyor");
+      document.getElementById("connectionNote").textContent = "Site sohbet kutusu değildir. WhatsApp Web bu PC’de açık olmalı; gönderimler tek kuyruktan geçer.";
       page.innerHTML = whatsappWebSchedulePage(data);
       bindActions();
     } catch (error) {
@@ -733,8 +723,6 @@ function hasUnsavedConversationWork() {
   );
 }
 setInterval(() => { if (session.authenticated && !document.hidden &&
-  ["overview", "conversations", "reports", "insights", "approvals"].includes(state.route) &&
-  !(state.route === "conversations" && state.conversation) &&
-  !hasUnsavedConversationWork()) render(); }, 30000);
+  ["waweb-schedule", "setup"].includes(state.route)) render(); }, 30000);
 render();
 
