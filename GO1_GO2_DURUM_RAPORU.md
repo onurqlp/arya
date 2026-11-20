@@ -12,7 +12,7 @@
 - Yeni kodda transport varsayılanı `web`; Meta yalnızca `ARYA_WHATSAPP_TRANSPORT=meta` açıkça ayarlanırsa seçilir. Web modunda Meta webhook/abonelik 404 verir ve gönderim uçları reddedilir. Canlı Vercel ortam değerleri ve deployment değiştirilmedi.
 - Yerel `api/local-whatsapp-agent` ucu HMAC imzalı pull/ack alır. İzole koordinatör DB'deki tek outbox tek işi lease eder; lease zaman aşımı `uncertain` yapar ve iş tekrar kuyruğa dönmez. Admin paneli belirsiz/engelli işleri WhatsApp Web'de elle kontrol ederek uzlaştırır.
 - Eklenti yeni gelenleri idempotent alır, dakikada bir gönderim işini kontrol eder, hedef sohbeti arayıp tam başlığı doğrular ve tek tıklama denemesi yapar. Eksik/yanlış hedef gönderimi durdurur. Alım kuyruğu kapasite aşımında eski mesajı sessizce silmez.
-- Yönetici panelinde ayrı koordinatör veritabanını kullanan elle ders eşleme ekranı eklendi. İlk kayıtlar devre dışı; ajan varsayılan olarak duraklatılmış, kuru çalışma açık ve gönderim kapalı.
+- Yönetici panelinde ayrı koordinatör veritabanını kullanan elle ders eşleme ekranı eklendi. Öğretmen birebir sohbet başlığı, sınıf grubu başlığı ve görünen öğretmen adı ayrı doğrulanır; 09.00 teyidi birebir sohbete, ders duyurusu/hatırlatma gruba gider. İlk kayıtlar devre dışı; ajan varsayılan olarak duraklatılmış, kuru çalışma açık ve gönderim kapalı.
 - Gerçek WhatsApp oturumuna eklenti kurulumu doğrulanamadı. Önceki tarayıcı kontrolünde uzantı yönetim sayfasına erişim denetimi engel oldu; farklı bir yöntemle bu engel aşılmadı. Kullanıcı oturumu/QR akışına dokunulmadı.
 
 ## GO 2 — ders teyidi ve yönlendirme iş akışı

@@ -4,11 +4,11 @@ Bu klasör, Chrome/Edge Manifest V3 yerel eklentisini içerir. Allowlist'teki a�
 
 ## İstenen ders teyit akışı
 
-Hedef iş akışı: sabah yalnızca eşleştirilmiş öğretmen grubuna teyit sorusu, öğretmenin açık onayı gelince aynı gruba ders saatini yazma, ders öncesi hatırlatma. Gelen mesajda öğretmen adı ve grup adı ders çizelgesiyle eşleşmezse, yanıt açık değilse veya saat çelişiyorsa insan kontrolü gerekir. Her gönderim önce hedef grup başlığıyla dry-run'da gösterilmeli. Tek bir ortak outbox kullanılmalı; gönderim sonucu belirsizse aynı işi otomatik tekrar göndermemeli.
+Hedef iş akışı: sabah teyit sorusu eşleştirilmiş öğretmenin birebir WhatsApp sohbetine gider; açık onay gelince ders saati sınıf grubuna yazılır ve ders öncesi hatırlatma gruba gider. Öğretmenin birebir sohbet başlığı çizelgeyle eşleşmezse, yanıt açık değilse veya saat çelişiyorsa insan kontrolü gerekir. Her gönderim önce hedef sohbet başlığıyla kuru çalışmada gösterilmeli. Tek bir ortak outbox kullanılmalı; gönderim sonucu belirsizse aynı işi otomatik tekrar göndermemeli.
 
 **Demo çizelgesi bu akış için kaynak değildir:** üretim commit'indeki Ders Programı, Görev Kuyruğu ve ajan API'si GO3 demo/simülasyon olarak yazılmıştır. GO1 dalındaki `/#whatsapp-web-dersleri` elle tanımlanan haftalık eşlemeleri ayrı koordinatör veritabanında tutar.
 
-GO2 akışı etkinleştirildiğinde yerel dakikalık alarmı 09.00 teyitini, 12.00 yanıtsızlık eskalasyonunu, açık onay sonrası grup duyurusunu ve teyit edilmiş ders için ders öncesi hatırlatmayı tek outbox'a koyar. `classifyLocalTeacherReply` grup başlığı ve görünen öğretmen adı eşleşmeden kabul etmez; yalnızca tam `ok`, `tamam`, `evet` (son noktalama işaretleri olabilir) açık teyittir. Diğer yanıtlar ARYA ONAY'a kodlu inceleme olur. Yanıt `#KOD metin` biçiminde geldiğinde açık incelemeye bağlanır.
+GO2 akışı etkinleştirildiğinde yerel dakikalık alarmı 09.00 birebir teyidini, 12.00 yanıtsızlık eskalasyonunu, açık onay sonrası grup duyurusunu ve teyit edilmiş ders için ders öncesi hatırlatmayı tek outbox'a koyar. `classifyLocalTeacherReply` öğretmenin birebir sohbet başlığını ve varsa görünen gönderen adını çizelgeyle eşleştirmeden kabul etmez; yalnızca tam `ok`, `tamam`, `evet` (son noktalama işaretleri olabilir) açık teyittir. Diğer yanıtlar ARYA ONAY'a kodlu inceleme olur. Yanıt `#KOD metin` biçiminde geldiğinde açık incelemeye bağlanır.
 
 Outbox aynı anda tek işi lease eder. Lease süresi dolan veya sonucu belirsiz iş `uncertain` olur ve yeniden gönderilmez; yönetici WhatsApp Web'de kontrol edip elle uzlaştırır. Kuru çalışma alıcı başlığını ve mesajı gösterir. Canlı kapı varsayılan kapalıdır; Web taşıma yapılandırması, etkin eşlemelerin ve ARYA ONAY'ın sunucu allowlist'inde olması ve yöneticinin açık alıcı/taslak doğrulaması olmadan açılmaz. Eklenti bu çalışma oturumunda tarayıcıya kurulmadı.
 
@@ -18,7 +18,7 @@ Bu dal GitHub'a gönderildi ve Vercel Preview deployment'ı `READY` oldu: `https
 
 - `ARYA_LOCAL_WHATSAPP_ENABLED=true`
 - `ARYA_LOCAL_WHATSAPP_INGEST_SECRET`: en az 32 karakterlik rastgele değer
-- `ARYA_LOCAL_WHATSAPP_ALLOWED_CHATS`: sohbet adlarından oluşan JSON dizisi; ör. `["Grup adı"]`
+- `ARYA_LOCAL_WHATSAPP_ALLOWED_CHATS`: öğretmen birebir sohbetleri, sınıf grupları ve ARYA ONAY başlığından oluşan JSON dizisi; ör. `["Öğretmen başlığı", "Sınıf grubu", "ARYA ONAY"]`
 
 Gönderim için ayrıca bu PC'deki yerel ajan son iki dakika içinde WhatsApp Web sekmesi gördüğünü bildirmeli; ayrı koordinatör DB'de panelden kaydedilmiş onay grubu ve etkin ders eşlemeleri sunucu allowlist'iyle aynı olmalıdır. Panelin canlı kapısı bunları ve yönetici tarafından girilen alıcı/kuru çalışma doğrulama ifadesini kontrol eder. Save/pause/grup adı değişimi canlı ayarını tekrar kapatır.
 

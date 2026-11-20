@@ -96,7 +96,7 @@ function setNavigation() {
 function whatsappWebSchedulePage(data) {
   const weekdays = ["", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Istanbul" });
-  const rows = (data.schedules || []).map((item) => '<tr><td><strong>' + esc(item.group_name) + '</strong><br><span class="muted-note">' + esc(item.teacher_name) + '</span></td>' +
+  const rows = (data.schedules || []).map((item) => '<tr><td><strong>' + esc(item.group_name) + '</strong><br><span class="muted-note">' + esc(item.teacher_name) + ' · birebir: ' + esc(item.teacher_chat_name) + '</span></td>' +
     '<td>' + weekdays[Number(item.weekday)] + ' · ' + esc(item.class_time) + '</td><td>' + esc(item.checkin_time) + ' / ' + esc(item.response_deadline) + '</td>' +
     '<td>Ders öncesi ' + number(item.preclass_minutes) + ' dk</td><td><span class="tag ' + (item.enabled ? 'green' : 'yellow') + '">' + (item.enabled ? 'Taslak etkin' : 'Kapalı') + '</span></td>' +
     '<td><button class="btn secondary" data-waweb-edit="' + esc(item.id) + '">Düzenle</button></td></tr>').join("");
@@ -104,9 +104,9 @@ function whatsappWebSchedulePage(data) {
     '<td><span class="tag ' + (item.status === 'sent' ? 'green' : ['uncertain','blocked'].includes(item.status) ? 'red' : 'yellow') + '">' + esc(item.status) + '</span><br>' + esc(item.outcome_code || '') + '</td>' +
     '<td>' + (['uncertain','blocked'].includes(item.status) ? '<button class="btn secondary" data-waweb-resolve="confirm_sent" data-id="' + esc(item.id) + '">Teslim edildi</button> <button class="btn secondary" data-waweb-resolve="cancel" data-id="' + esc(item.id) + '">İptal et</button>' : '—') + '</td></tr>').join("");
   const settings = data.settings || {};
-  return title("WhatsApp Web ders koordinasyonu", "Öğretmen teyidi 09.00’da; 12.00’ye kadar yanıt beklenir. Açık onay gelirse ders saati gruba yazılır; hatırlatma varsayılan olarak 60 dakika öncedir.") +
+  return title("WhatsApp Web ders koordinasyonu", "09.00 teyidi öğretmenin birebir sohbetine gider; açık onay gelirse ders saati gruba yazılır. 12.00’ye kadar yanıt beklenir; hatırlatma varsayılan olarak 60 dakika öncedir.") +
     '<div class="warning"><b>Güvenli hazırlık modu</b><span>Ajan duraklatıldı, kuru çalışma açık, gerçek gönderim kapalı. Bu paneldeki planlar demo ders programından ayrıdır. Henüz WhatsApp’a mesaj gönderilmez.</span></div>' +
-    '<div class="grid split"><section class="card"><div class="cardhead"><div><h2>Haftalık öğretmen / grup eşlemesi</h2><p>Grup adını WhatsApp başlığıyla birebir eşleştir.</p></div><button class="btn secondary" data-waweb-new>Yeni ders</button></div>' +
+    '<div class="grid split"><section class="card"><div class="cardhead"><div><h2>Haftalık öğretmen / grup eşlemesi</h2><p>Öğretmen birebir sohbeti ve sınıf grubu başlıklarını WhatsApp’taki adlarıyla eşleştir.</p></div><button class="btn secondary" data-waweb-new>Yeni ders</button></div>' +
     '<div class="ops-table-wrap"><table class="table"><thead><tr><th>WhatsApp grubu / öğretmen</th><th>Ders</th><th>Teyit penceresi</th><th>Hatırlatma</th><th>Durum</th><th></th></tr></thead><tbody>' + (rows || '<tr><td colspan="6">Henüz eşleme yok. Yeni ders ile elle tanımla.</td></tr>') + '</tbody></table></div></section>' +
     '<section class="card"><div class="cardhead"><div><h2>İnsan kontrolü</h2><p>Beklenmedik/çelişkili yanıtlar için iç grup.</p></div></div>' +
     '<form id="wawebApprovalChatForm"><label for="wawebApprovalChat">Onay WhatsApp grubu</label><input id="wawebApprovalChat" name="chat_name" maxlength="100" value="' + esc(settings.approval_chat_name || "ARYA ONAY") + '" required>' +
@@ -129,7 +129,8 @@ function whatsappWebScheduleEditor(item = {}) {
   editor.hidden = false;
   editor.innerHTML = '<div class="cardhead"><div><h2>' + (item.id ? 'Ders eşlemesini düzenle' : 'Yeni ders eşlemesi') + '</h2><p>Kaydetmek mesaj göndermez. Yeni kayıt varsayılan olarak kapalıdır.</p></div></div>' +
     '<form id="wawebScheduleForm" data-id="' + esc(item.id || '') + '"><label>WhatsApp grup başlığı<input name="group_name" maxlength="100" required value="' + esc(item.group_name || '') + '"></label>' +
-    '<label>Öğretmen adı<input name="teacher_name" maxlength="80" required value="' + esc(item.teacher_name || '') + '"></label>' +
+    '<label>Öğretmenin görünen adı<input name="teacher_name" maxlength="80" required value="' + esc(item.teacher_name || '') + '"></label>' +
+    '<label>Öğretmenin birebir WhatsApp başlığı<input name="teacher_chat_name" maxlength="100" required value="' + esc(item.teacher_chat_name || '') + '"></label>' +
     '<label>Haftanın günü<select name="weekday">' + dayOptions + '</select></label>' +
     '<label>Ders saati<input type="time" name="class_time" required value="' + esc(item.class_time || '10:00') + '"></label>' +
     '<label>Teyit mesajı saati<input type="time" name="checkin_time" required value="' + esc(item.checkin_time || '09:00') + '"></label>' +
@@ -500,7 +501,7 @@ function bindActions() {
       event.preventDefault();
       const form = scheduleForm;
       const schedule = { id: form.dataset.id || undefined, group_name: form.elements.group_name.value,
-        teacher_name: form.elements.teacher_name.value, weekday: Number(form.elements.weekday.value),
+        teacher_name: form.elements.teacher_name.value, teacher_chat_name: form.elements.teacher_chat_name.value, weekday: Number(form.elements.weekday.value),
         class_time: form.elements.class_time.value, checkin_time: form.elements.checkin_time.value,
         response_deadline: form.elements.response_deadline.value, preclass_minutes: Number(form.elements.preclass_minutes.value),
         enabled: form.elements.enabled.checked };
