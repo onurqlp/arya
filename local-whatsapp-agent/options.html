@@ -13,14 +13,14 @@
 </head>
 <body>
   <h1>Arya yerel ajanı</h1>
-  <p>Yalnızca burada yazdığın sohbet adlarını dinler. Gelen metinleri Arya paneline aktarır. Paneldeki canlı gönderim kapısı ayrıca açılmadıkça mesaj göndermez.</p>
+  <p>Tüm sohbet kapsamı <code>*</code> olarak ayarlanır. Açık WhatsApp Web sekmesinde görünür olan yeni gelen metinler Arya paneline aktarılır. Eklenti geçmiş sohbetleri taramaz; canlı gönderim kapısı ayrıca açılmadıkça mesaj göndermez.</p>
   <form id="settings">
     <label for="endpoint">Arya paneli</label>
     <input id="endpoint" value="https://arya-whatsapp-panel.vercel.app" readonly>
     <label for="secret">Yerel ajan bağlantı anahtarı</label>
-    <input id="secret" type="password" autocomplete="off" minlength="32" required>
-    <label for="chats">İzlenecek sohbet adları (her satıra bir tane)</label>
-    <textarea id="chats" required></textarea>
+    <input id="secret" type="password" autocomplete="off" minlength="32" placeholder="Yeni kurulumda anahtarı girin; kayıtlı anahtarı değiştirmek gerekmez">
+    <label for="chats">İzin verilen sohbetler</label>
+    <textarea id="chats" required>*</textarea>
     <button type="submit">Ayarları kaydet</button>
   </form>
   <p id="status" role="status"></p>

@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { localWhatsAppIngestConfigured } from "../lib/whatsapp-transport.js";
+import { ensureSchema } from "../lib/db.js";
 import { getCoordinatorDb } from "../lib/coordinator-db.js";
 import { processLocalWhatsAppInbound } from "../lib/local-whatsapp-outbox.js";
 
@@ -62,15 +63,22 @@ export default async function handler(req, res) {
       !Array.isArray(messages) || messages.length < 1 || messages.length > 20 || messages.some((message) => !validMessage(message))) {
     return res.status(bodySize > 40000 ? 413 : 400).json({ error: "invalid_payload" });
   }
-  if (messages.some((message) => !chats.has(normalized(message.chatName)))) {
+  if (messages.some((message) => !chats.has("*") && !chats.has(normalized(message.chatName)))) {
     return res.status(403).json({ error: "chat_not_allowlisted" });
   }
 
   try {
     const coordinatorDb = getCoordinatorDb();
+    const panelDb = await ensureSchema();
     let processed = 0;
     for (const message of messages) {
       const chatName = message.chatName.normalize("NFC").replace(/\s+/g, " ").trim();
+      const conversationId = "waweb:" + encodeURIComponent(chatName);
+      await panelDb.query(
+        "INSERT INTO arya_messages (message_id, conversation_id, sender_id, sender_name, message_type, body, message_time) " +
+        "VALUES ($1, $2, $3, $4, 'text', $5, $6::timestamptz) ON CONFLICT (message_id) DO NOTHING",
+        [message.messageId, conversationId, "whatsapp-web", message.senderName || null, message.body, message.messageTime],
+      );
       const result = await processLocalWhatsAppInbound(coordinatorDb, { ...message, chatName });
       if (!result.duplicate && !result.ignored) processed++;
     }

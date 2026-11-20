@@ -1,5 +1,5 @@
 const page = document.getElementById("page");
-const routeByHash = { "#whatsapp-web-dersleri": "waweb-schedule" };
+const routeByHash = { "#whatsapp-web-dersleri": "waweb-schedule", "#konusmalar": "conversations" };
 const state = { route: routeByHash[location.hash] || "waweb-schedule", conversation: null, approvalStatus: "pending", search: "", request: 0, teacherFixtures: [] };
 let session = { authenticated: false, setup: {} };
 let health = {};
@@ -19,7 +19,6 @@ const errorText = (code) => ({
   storage_unavailable: "Veritabanına ulaşılamadı.",
   openai_not_configured: "OpenAI anahtarı ve model adı henüz eklenmedi.",
   "42501": "Veritabanı izinleri eksik. Sistem tabloları yönetici rolüyle kurulmalı; uygulama rolü yalnızca tablo işlemlerine sahip olmalı.",
-  meta_send_not_configured: "Meta mesaj gönderim bilgileri henüz eklenmedi.",
   individual_conversation_required: "Yalnızca doğrulanmış bireysel sohbetlere gönderim destekleniyor.",
   invalid_whatsapp_schedule: "Grup, öğretmen, gün ve saat alanlarını kontrol edin.",
   whatsapp_schedule_conflict: "Bu grup için aynı gün ve saatte başka bir ders kaydı var.",
@@ -35,8 +34,8 @@ const errorText = (code) => ({
   coordinator_database_scope_invalid: "Ders koordinatörü için ayrı veritabanı yapılandırılmalı.",
   coordinator_store_not_configured: "Ders koordinatörü veritabanı henüz yapılandırılmadı.",
   coordinator_storage_disabled: "Ders koordinatörü depolaması kapalı.",
-  meta_send_rejected: "Meta gönderimi reddetti.",
   whatsapp_web_sender_not_enabled: "WhatsApp Web alımı hazırlıkta; yerel gönderim bu sürümde kapalı.",
+  whatsapp_web_send_paused: "WhatsApp Web canlı gönderim kapısı kapalı. Kuru çalışma ve alıcı kontrolü tamamlanana kadar yanıt gönderilemez.",
   invalid_reply_text: "Yanıt boş olamaz ve 4.096 karakteri geçemez.",
   invalid_reply_request_id: "Gönderim isteği doğrulanamadı. Sayfayı yenileyip yeniden deneyin.",
   conversation_not_found: "Bu sohbet için gönderilebilir bir gelen mesaj bulunamadı.",
@@ -45,8 +44,6 @@ const errorText = (code) => ({
   reply_request_reused: "Bu istek anahtarı daha önce kullanılmış. Yeniden gönderim için sayfayı yenileyin.",
   manual_delivery_uncertain: "Gönderim sonucu belirsiz. WhatsApp teslim durumunu kontrol etmeden yeniden göndermeyin.",
   send_state_unavailable: "Gönderim durumu doğrulanamadı. WhatsApp’ta teslimi kontrol etmeden yeniden göndermeyin.",
-  meta_subscription_failed: "Meta aboneliği tamamlanamadı. Aşağıdaki durum kodunu kontrol edin.",
-  meta_delivery_uncertain: "Meta yanıtı belirsiz. Tekrar göndermeden önce Meta'da teslim durumunu kontrol edin.",
   unauthorized: "Oturum sona erdi. Yeniden giriş yapın.",
   messages_must_share_conversation: "Aynı konuşmanın mesajlarını seçin.",
   openai_consent_required: "Analiz onayını işaretleyin."
@@ -77,7 +74,7 @@ function navigate(route, conversation = null) {
   state.route = route;
   state.conversation = conversation;
   state.search = "";
-  const routeHashes = { operations: "#kurum-takip", "teacher-confirm": "#ders-teyit", "waweb-schedule": "#whatsapp-web-dersleri", "coord-schedule": "#ders-programi", "coord-queue": "#ders-kuyrugu", "coord-health": "#ders-saglik", "coord-history": "#ders-gecmis" };
+  const routeHashes = { operations: "#kurum-takip", "teacher-confirm": "#ders-teyit", conversations: "#konusmalar", "waweb-schedule": "#whatsapp-web-dersleri", "coord-schedule": "#ders-programi", "coord-queue": "#ders-kuyrugu", "coord-health": "#ders-saglik", "coord-history": "#ders-gecmis" };
   if (routeHashes[route]) history.replaceState(null, "", routeHashes[route]);
   else if (Object.values(routeHashes).includes(location.hash)) history.replaceState(null, "", location.pathname + location.search);
   document.getElementById("sidebar").classList.remove("open");
@@ -87,7 +84,7 @@ function navigate(route, conversation = null) {
 function setNavigation() {
   const labels = { overview: "ARYA Yerel Ajanı", conversations: "ARYA Yerel Ajanı", approvals: "ARYA Yerel Ajanı",
     insights: "Analiz ve Bulgular", reports: "Raporlar", operations: "Kurum Takip", "teacher-confirm": "Ders Teyidi",
-    "waweb-schedule": "ARYA Yerel Ajanı",
+    "waweb-schedule": "ARYA Yerel Ajanı", conversations: "Konuşmalar",
     "coord-schedule": "Ders Programı", "coord-queue": "Görev Kuyruğu", "coord-health": "Sistem Sağlığı",
     "coord-history": "Geçmiş / Alarmlar", setup: "Sistem Durumu" };
   document.getElementById("crumb").textContent = labels[state.route] || "ARYA Yerel Ajanı";
@@ -105,8 +102,8 @@ function whatsappWebSchedulePage(data) {
     '<td><span class="tag ' + (item.status === 'sent' ? 'green' : ['uncertain','blocked'].includes(item.status) ? 'red' : 'yellow') + '">' + esc(item.status) + '</span><br>' + esc(item.outcome_code || '') + '</td>' +
     '<td>' + (['uncertain','blocked'].includes(item.status) ? '<button class="btn secondary" data-waweb-resolve="confirm_sent" data-id="' + esc(item.id) + '">Teslim edildi</button> <button class="btn secondary" data-waweb-resolve="cancel" data-id="' + esc(item.id) + '">İptal et</button>' : '—') + '</td></tr>').join("");
   const settings = data.settings || {};
-  return title("ARYA yerel WhatsApp Web ajanı", "Ajan açık WhatsApp Web sekmesini izler. Bu site sohbet kutusu değildir; burada yalnızca ders eşlemeleri, ajan durumu ve gönderim kuyruğu yönetilir.") +
-    '<div class="warning"><b>Mesaj kutusu yok</b><span>Gelen sohbetler bu sitede listelenmez veya eski ARYA konuşma arşivine yazılmaz. Yerel eklenti yalnızca eşlenmiş ders akışını işler. Otomatik gönderim başlangıçta duraklatılmış ve kuru çalışmadadır.</span></div>' +
+  return title("ARYA yerel WhatsApp Web ajanı", "Açık WhatsApp Web oturumunda gözlemlenen yeni gelen metinler bu panele aktarılır. Eklenti erişim kapsamı tüm sohbetler (*) olarak ayarlanır.") +
+    '<div class="warning"><b>Tüm sohbet erişimi</b><span>Yeni gelen metinler açık WhatsApp Web sekmesinde ilgili sohbet görünürken ARYA gelen kutusuna kaydedilir. Eklenti mevcut ekranda görünen eski geçmişi geriye dönük yüklemez. Gönderim tek ortak kuyruktan geçer; canlı gönderim şu anda kapalıdır.</span></div>' +
     '<div class="grid split"><section class="card"><div class="cardhead"><div><h2>Haftalık öğretmen / grup eşlemesi</h2><p>Öğretmen birebir sohbeti ve sınıf grubu başlıklarını WhatsApp’taki adlarıyla eşleştir.</p></div><button class="btn secondary" data-waweb-new>Yeni ders</button></div>' +
     '<div class="ops-table-wrap"><table class="table"><thead><tr><th>WhatsApp grubu / öğretmen</th><th>Ders</th><th>Teyit penceresi</th><th>Hatırlatma</th><th>Durum</th><th></th></tr></thead><tbody>' + (rows || '<tr><td colspan="6">Henüz eşleme yok. Yeni ders ile elle tanımla.</td></tr>') + '</tbody></table></div></section>' +
     '<section class="card"><div class="cardhead"><div><h2>İnsan kontrolü</h2><p>Beklenmedik/çelişkili yanıtlar için iç grup.</p></div></div>' +
@@ -173,7 +170,7 @@ async function load() {
   session = await api("/api/admin/session");
   health = await api("/api/health");
   connection();
-  summary = null;
+  summary = session.authenticated ? await api("/api/admin/summary") : null;
 }
 function conversations() {
   const groups = new Map();
@@ -218,21 +215,23 @@ function conversationPage() {
   const groups = conversations().filter((g) => (groupName(g) + " " + g.messages.map((m) => m.body).join(" ")).toLowerCase().includes(state.search.toLowerCase()));
   if (state.conversation) {
     const group = conversations().find((g) => g.id === state.conversation);
-    const canReply = Boolean(health.transport !== "web" && group && /^\d{5,30}:\d{6,20}$/.test(group.id));
-    return title(group ? groupName(group) : "Konuşma bulunamadı", "Son 150 mesajdan bu sohbete ait kayıtlar.",
+    const isWebConversation = Boolean(health.transport === "web" && group?.id.startsWith("waweb:"));
+    const canReply = Boolean((isWebConversation || health.transport !== "web") && group &&
+      (isWebConversation || /^\d{5,30}:\d{6,20}$/.test(group.id)));
+    return title(group ? groupName(group) : "Konuşma bulunamadı", "Son 500 kayıt içinden bu sohbete ait mesajlar.",
       button("Mesajları yenile", 'data-refresh') + button("Listeye dön", 'data-route="conversations"')) +
       '<section class="card">' + (group ?
       [...group.messages].reverse().map((m) => messageCard(m, true)).join("") +
       '<form id="analyzeForm"><div class="live-toolbar"><label class="consent-row"><input id="aiConsent" type="checkbox"> Seçtiğim mesajların OpenAI ile analiz edilmesini onaylıyorum.</label>' +
       button("Analiz et ve taslak oluştur", 'type="submit"', "primary") + '</div></form>' +
       (canReply ? '<form id="manualReplyForm" class="manual-reply" data-conversation="' + esc(group.id) + '">' +
-        '<h2>WhatsApp’tan yanıtla</h2><p class="muted-note">Yanıt doğrudan müşteriye gider. WhatsApp’ın 24 saatlik mesajlaşma penceresi uygulanır.</p>' +
+        '<h2>WhatsApp’tan yanıtla</h2><p class="muted-note">Yanıt ortak yerel kuyruğa alınır; açık WhatsApp Web sekmesi gönderimi yapar. Canlı gönderim kapısı kapalıysa istek reddedilir.</p>' +
         '<textarea name="text" maxlength="4096" required placeholder="Yanıtınızı yazın…"></textarea>' +
         '<input type="hidden" name="requestId" value="' + esc(crypto.randomUUID()) + '">' +
-        '<div class="live-toolbar">' + button("WhatsApp’tan gönder", 'type="submit"', "primary") + '</div></form>' :
+        '<div class="live-toolbar">' + button(isWebConversation ? "Kuyruğa ekle" : "WhatsApp’tan gönder", 'type="submit"', "primary") + '</div></form>' :
         '<p class="muted-note">Bu kayıt doğrulanmış birebir sohbet numarası taşımadığı için yanıt gönderimi kapalı.</p>') : empty("Bu konuşma erişilebilir değil.")) + '</section>';
   }
-  return title("Konuşmalar", "Kaydedilen gerçek mesajlar. En son 150 mesaj üzerinden listelenir.", button("Yenile", 'data-refresh')) +
+  return title("Konuşmalar", "WhatsApp Web’de gözlemlenip kaydedilen son 500 mesaj.", button("Yenile", 'data-refresh')) +
     '<section class="card"><input class="content-search" id="search" placeholder="Sohbet veya mesaj ara…" value="' + esc(state.search) + '">' +
     (groups.length ? groups.map((g) => '<button class="conversation" data-open-conversation="' + esc(g.id) +
     '"><span class="groupicon">▤</span><span><strong>' + esc(groupName(g)) + '</strong><span class="convo-preview">' +
@@ -258,10 +257,8 @@ async function fillApprovals(request) {
     (a.status === "pending" ? '<div class="actions">' +
     button("Onayla", 'data-approval="' + esc(a.id) + '" data-action="approve"', "primary") +
     button("Reddet", 'data-approval="' + esc(a.id) + '" data-action="reject"') + '</div>' :
-    a.status === "approved" ? (health.transport === "web" ?
-      '<span class="tag yellow">WhatsApp Web yerel gönderimi kapalı</span>' : health.configured?.metaSend ?
-      button("WhatsApp’a gönder", 'data-send="' + esc(a.id) + '"', "primary") :
-      '<span class="tag yellow">Meta gönderim bağlantısı bekleniyor</span>') :
+    a.status === "approved" ?
+      '<span class="tag yellow">WhatsApp Web canlı kapısı açılana kadar gönderim kapalı</span>' :
     '<span class="tag ' + (a.status === "sent" ? "green" : "yellow") + '">' +
       esc(a.status === "sent" ? "Gönderildi" : a.status === "sending" ? "Teslim durumu kontrol edilmeli" : "Reddedildi") +
     '</span>') + '</article>').join("") :
@@ -510,14 +507,6 @@ function bindActions() {
     }
     render();
   });
-  const subscribe = document.querySelector("[data-subscribe]");
-  if (subscribe) subscribe.onclick = async () => {
-    subscribe.disabled = true;
-    try {
-      await api("/api/meta-subscription", { method: "POST", body: "{}" });
-      await render(); notice("Meta aboneliği doğrulandı.");
-    } catch (error) { await render(); notice(errorText(error.code)); }
-  };
   document.querySelectorAll("[data-status]").forEach((element) => element.onclick = () => {
     state.approvalStatus = element.dataset.status; render();
   });
@@ -555,14 +544,14 @@ function bindActions() {
       if (!text.trim()) { updateSubmit(); return; }
       sending = true;
       updateSubmit();
-      notice("WhatsApp’a gönderiliyor…");
+      notice("Yanıt güvenli gönderim akışına ekleniyor…");
       try {
         await api("/api/admin/reply", { method: "POST", body: JSON.stringify({
           conversationId: replyForm.dataset.conversation, text, requestId
         }) });
         state.conversation = replyForm.dataset.conversation;
         await render();
-        notice("Yanıt WhatsApp üzerinden gönderildi.");
+        notice(health.transport === "web" ? "Yanıt ortak WhatsApp Web kuyruğuna alındı; bu onay gönderildiği anlamına gelmez." : "Yanıt WhatsApp üzerinden gönderildi.");
       } catch (error) {
         const diagnostic = [
           error.providerStatus ? "HTTP " + error.providerStatus : "",
@@ -583,14 +572,6 @@ function bindActions() {
         id: element.dataset.approval, action: element.dataset.action }) });
       await render();
     } catch (error) { notice(errorText(error.code)); element.disabled = false; }
-  });
-  document.querySelectorAll("[data-send]").forEach((element) => element.onclick = async () => {
-    if (!confirm("Bu onaylanmış yanıtı bireysel WhatsApp sohbetine gönderelim mi?")) return;
-    element.disabled = true;
-    try {
-      await api("/api/admin/send", { method: "POST", body: JSON.stringify({ id: element.dataset.send }) });
-      state.approvalStatus = "sent"; await render(); notice("Mesaj Meta üzerinden gönderildi.");
-    } catch (error) { notice(errorText(error.code)); await render(); }
   });
   const coordinatorAction = async (payload, element) => {
     if (element) element.disabled = true;

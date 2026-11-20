@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Arya WhatsApp Web Yerel Ajanı",
-  "version": "0.1.0",
-  "description": "WhatsApp Web oturumunda eşlenmiş ders teyitlerini yerel olarak izler; gönderimleri ortak, allowlist denetimli kuyruğa bağlar. Site mesaj gelen kutusu değildir.",
+  "version": "0.2.1",
+  "description": "WhatsApp Web sohbetlerini ARYA paneline aktarır; yanıtları tek kuyruktan, açık canlı gönderim kapısıyla iletir.",
   "permissions": ["storage", "alarms", "tabs"],
   "host_permissions": [
     "https://web.whatsapp.com/*",

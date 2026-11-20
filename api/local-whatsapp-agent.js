@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { ensureSchema } from "../lib/db.js";
 import { getCoordinatorDb } from "../lib/coordinator-db.js";
 import { localWhatsAppIngestConfigured, whatsappTransport } from "../lib/whatsapp-transport.js";
 import { acknowledgeLocalWhatsAppJob, claimLocalWhatsAppJob, enqueueDueLocalWhatsAppJobs, ensureLocalWhatsAppOutboxSchema } from "../lib/local-whatsapp-outbox.js";
@@ -54,7 +55,26 @@ export default async function handler(req, res) {
   try {
     const db = getCoordinatorDb();
     await ensureLocalWhatsAppOutboxSchema(db);
-    if (body.action === "ack") return res.status(200).json(await acknowledgeLocalWhatsAppJob(db, body.agent_id, body));
+    if (body.action === "ack") {
+      const job = body.outcome === "sent"
+        ? (await db.query("SELECT chat_name, body FROM arya_web_outbox WHERE id = $1::uuid", [body.job_id]))[0]
+        : null;
+      const acknowledged = await acknowledgeLocalWhatsAppJob(db, body.agent_id, body);
+      if (body.outcome === "sent" && job) {
+        try {
+          const panelDb = await ensureSchema();
+          const conversationId = "waweb:" + encodeURIComponent(job.chat_name);
+          await panelDb.query(
+            "INSERT INTO arya_outbound_messages (id, conversation_id, recipient_id, body, status, provider_message_id, sent_at) " +
+            "VALUES ($1, $2, $3, $4, 'sent', $5, NOW()) ON CONFLICT (id) DO NOTHING",
+            ["waweb-out:" + body.job_id, conversationId, "whatsapp-web:" + job.chat_name, job.body, "whatsapp-web:" + body.job_id],
+          );
+        } catch {
+          // The coordinator queue is already acknowledged; never re-send because dashboard archival failed.
+        }
+      }
+      return res.status(200).json(acknowledged);
+    }
     await db.query("INSERT INTO arya_web_agent_heartbeats (agent_id, last_seen, whatsapp_tab_open) VALUES ($1, NOW(), $2) " +
       "ON CONFLICT (agent_id) DO UPDATE SET last_seen = NOW(), whatsapp_tab_open = EXCLUDED.whatsapp_tab_open", [body.agent_id, body.whatsapp_tab_open]);
     const settings = (await db.query("SELECT paused, dry_run, send_enabled FROM arya_web_agent_settings WHERE id = 1"))[0];
@@ -65,7 +85,7 @@ export default async function handler(req, res) {
       let allowlist = [];
       try { allowlist = JSON.parse(process.env.ARYA_LOCAL_WHATSAPP_ALLOWED_CHATS || "[]"); } catch {}
       const allowed = new Set(Array.isArray(allowlist) ? allowlist.map(normalized) : []);
-      if (!allowed.has(normalized(result.job.chat_name))) {
+      if (!allowed.has("*") && !allowed.has(normalized(result.job.chat_name))) {
         await acknowledgeLocalWhatsAppJob(db, body.agent_id, { job_id: result.job.id, outcome: "blocked", error_code: "chat_not_allowlisted" });
         return res.status(200).json({ job: null, sending_enabled: result.sending_enabled, blocked: "chat_not_allowlisted" });
       }

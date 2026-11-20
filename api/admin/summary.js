@@ -22,7 +22,7 @@ export default async function handler(req, res) {
         "UNION ALL " +
         "SELECT id AS message_id, conversation_id, 'AYDA' AS sender_name, 'text' AS message_type, body, sent_at AS message_time, TRUE AS is_outbound " +
         "FROM arya_outbound_messages WHERE status = 'sent' AND sent_at IS NOT NULL" +
-        ") AS conversation_timeline ORDER BY message_time DESC LIMIT 150",
+        ") AS conversation_timeline ORDER BY message_time DESC LIMIT 500",
       )
     ]);
     res.status(200).json({ counts: counts[0], daily, approvals, messages: recent });

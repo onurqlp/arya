@@ -52,7 +52,7 @@ async function signedAgentRequest(settings, payload) {
 async function enqueue(message) {
   const settings = await config();
   const allowed = new Set((settings.allowedChats || []).map(normalized));
-  if (!allowed.has(normalized(message.chatName))) return { ok: true, skipped: true };
+  if (!allowed.has("*") && !allowed.has(normalized(message.chatName))) return { ok: true, skipped: true };
   const saved = await storageGet(["queue"]);
   const queue = Array.isArray(saved.queue) ? saved.queue : [];
   if (queue.some((item) => item.messageId === message.messageId)) return { ok: true, duplicate: true };
@@ -167,15 +167,17 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     const allowedChats = [...new Set((Array.isArray(message.allowedChats) ? message.allowedChats : [])
       .map((item) => String(item).normalize("NFC").replace(/\s+/g, " ").trim()).filter(Boolean))];
     const endpoint = String(message.endpoint || "").replace(/\/+$/, "");
-    const secret = String(message.secret || "").trim();
-    if (endpoint !== "https://arya-whatsapp-panel.vercel.app" || secret.length < 32 || !allowedChats.length) {
-      sendResponse({ ok: false, error: "invalid_settings" });
-      return false;
-    }
-    const agentId = "arya-local-" + crypto.randomUUID().slice(0, 8);
-    storageSet({ config: { endpoint, secret, allowedChats, agentId } }).then(() => {
-      sendResponse({ ok: true });
-      flushQueue();
+    config().then((existing) => {
+      const secret = String(message.secret || "").trim() || String(existing.secret || "");
+      if (endpoint !== "https://arya-whatsapp-panel.vercel.app" || secret.length < 32 || !allowedChats.length) {
+        sendResponse({ ok: false, error: "invalid_settings" });
+        return;
+      }
+      const agentId = existing.agentId || "arya-local-" + crypto.randomUUID().slice(0, 8);
+      storageSet({ config: { endpoint, secret, allowedChats, agentId } }).then(() => {
+        sendResponse({ ok: true });
+        flushQueue();
+      }).catch(() => sendResponse({ ok: false }));
     }).catch(() => sendResponse({ ok: false }));
     return true;
   }

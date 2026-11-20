@@ -24,7 +24,7 @@ export default async function handler(req, res) {
     openAIConfigured: Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_MODEL),
     transport,
     whatsappWebIngestConfigured: transport === "web" && localWhatsAppIngestConfigured(),
-    webhookConfigured: transport !== "web" && Boolean(process.env.META_APP_SECRET && process.env.META_WEBHOOK_VERIFY_TOKEN),
+    webhookConfigured: false,
     outboundSending: false
   });
 }

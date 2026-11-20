@@ -4,7 +4,7 @@ const chats = document.getElementById("chats");
 const status = document.getElementById("status");
 
 chrome.runtime.sendMessage({ type: "ARYA_GET_CONFIG" }, (result) => {
-  chats.value = (result?.allowedChats || []).join("\n");
+  chats.value = "*";
   if (result?.configured) status.textContent = "Ajan ayarları kayıtlı.";
 });
 

@@ -31,7 +31,7 @@
 
   async function observe(node) {
     const chatName = activeChatName();
-    if (!chatName || !allowedChats.has(chatName.normalize("NFC").toLocaleLowerCase("tr-TR"))) return;
+    if (!chatName || (!allowedChats.has("*") && !allowedChats.has(chatName.normalize("NFC").toLocaleLowerCase("tr-TR")))) return;
     const candidates = new Set();
     const parentMessage = node.closest?.('[data-id].message-in');
     if (parentMessage) candidates.add(parentMessage);
@@ -114,7 +114,7 @@
   async function sendToActiveExactChat(job) {
     const settings = await new Promise((resolve) => chrome.runtime.sendMessage({ type: "ARYA_GET_CONFIG" }, resolve));
     const allowed = new Set((settings?.allowedChats || []).map((name) => clean(name).normalize("NFC").toLocaleLowerCase("tr-TR")));
-    if (!job || !allowed.has(clean(job.chat_name).normalize("NFC").toLocaleLowerCase("tr-TR"))) {
+    if (!job || (!allowed.has("*") && !allowed.has(clean(job.chat_name).normalize("NFC").toLocaleLowerCase("tr-TR")))) {
       return { outcome: "blocked", error_code: "chat_not_allowlisted" };
     }
     if (!await openExactChat(job.chat_name)) return { outcome: "blocked", error_code: "exact_chat_not_found" };

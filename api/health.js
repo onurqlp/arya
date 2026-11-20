@@ -34,8 +34,8 @@ export default async function handler(_req, res) {
     databaseReady,
     adminReady,
     localAgentMode: true,
-    messageInboxEnabled: false,
+    messageInboxEnabled: true,
     outboundSending: false,
-    note: "WhatsApp Web local-agent mode. The dashboard is an agent control panel, not a message inbox."
+    note: "WhatsApp Web local-agent mode. Incoming messages observed in the active WhatsApp Web session are available in the ARYA inbox."
   });
 }
