@@ -10,11 +10,11 @@ Hedef iş akışı: sabah yalnızca eşleştirilmiş öğretmen grubuna teyit so
 
 GO2 akışı etkinleştirildiğinde yerel dakikalık alarmı 09.00 teyitini, 12.00 yanıtsızlık eskalasyonunu, açık onay sonrası grup duyurusunu ve teyit edilmiş ders için ders öncesi hatırlatmayı tek outbox'a koyar. `classifyLocalTeacherReply` grup başlığı ve görünen öğretmen adı eşleşmeden kabul etmez; yalnızca tam `ok`, `tamam`, `evet` (son noktalama işaretleri olabilir) açık teyittir. Diğer yanıtlar ARYA ONAY'a kodlu inceleme olur. Yanıt `#KOD metin` biçiminde geldiğinde açık incelemeye bağlanır.
 
-Outbox aynı anda tek işi lease eder. Lease süresi dolan veya sonucu belirsiz iş `uncertain` olur ve yeniden gönderilmez; yönetici WhatsApp Web'de kontrol edip elle uzlaştırır. Kuru çalışma alıcı başlığını ve mesajı gösterir. Canlı kapı varsayılan kapalıdır; Web taşıma yapılandırması, etkin eşlemelerin ve ARYA ONAY'ın sunucu allowlist'inde olması ve yöneticinin açık alıcı/taslak doğrulaması olmadan açılmaz. Eklenti bu çalışma oturumunda tarayıcıya kurulmadı ve canlıya dağıtılmadı.
+Outbox aynı anda tek işi lease eder. Lease süresi dolan veya sonucu belirsiz iş `uncertain` olur ve yeniden gönderilmez; yönetici WhatsApp Web'de kontrol edip elle uzlaştırır. Kuru çalışma alıcı başlığını ve mesajı gösterir. Canlı kapı varsayılan kapalıdır; Web taşıma yapılandırması, etkin eşlemelerin ve ARYA ONAY'ın sunucu allowlist'inde olması ve yöneticinin açık alıcı/taslak doğrulaması olmadan açılmaz. Eklenti bu çalışma oturumunda tarayıcıya kurulmadı.
 
 ## Sunucu yapılandırması
 
-Bu çalışma dalı henüz Vercel'e dağıtılmadı; canlı proje Meta transport'unda kalıyor. Web'e geçilecek ayrı deployment'ta `ARYA_WHATSAPP_TRANSPORT=web` ve koordinatör DB için `DERS_COORDINATOR_ENABLED=true` yapılandırılmalıdır. Aşağıdaki alım ayarları da gereklidir:
+Bu dal GitHub'a gönderildi ve Vercel Preview deployment'ı `READY` oldu: `https://arya-whatsapp-panel-4r6n9olwt-onurqlp-7179.vercel.app/` (deployment `dpl_BBGrf4ub3jHXpZuvnfPt1Ed28jgh`, commit `5706cc46c8c46fe32668ec79129d3b439caf91eb`). Üretim alias'ı ve production ayarları değiştirilmedi; canlı proje eski Meta transport kodunda kalıyor. Bu dala özel Preview ortam değişkenleri tanımlı değil, bu yüzden Preview canlı ajan olarak yapılandırılmış değildir. Üretime geçilecek deployment'ta `ARYA_WHATSAPP_TRANSPORT=web` ve koordinatör DB için `DERS_COORDINATOR_ENABLED=true` yapılandırılmalıdır. Aşağıdaki alım ayarları da gereklidir:
 
 - `ARYA_LOCAL_WHATSAPP_ENABLED=true`
 - `ARYA_LOCAL_WHATSAPP_INGEST_SECRET`: en az 32 karakterlik rastgele değer

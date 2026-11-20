@@ -25,7 +25,8 @@
 ## Doğrulama ve canlı sınır
 
 - `node --check` ile değişen JavaScript dosyalarının sözdizimi, `git diff --check` ile yama biçimi kontrol edildi. Proje test paketi çalıştırılmadı.
-- Üretime dağıtım yapılmadı; Vercel, Neon, Meta ortam ayarları değiştirilmedi. Dış kullanıcıya veya WhatsApp grubuna mesaj gönderilmedi.
+- Dal `5706cc46c8c46fe32668ec79129d3b439caf91eb` commit'iyle GitHub'a gönderildi; Vercel otomatik Preview deployment'ı `READY`: `https://arya-whatsapp-panel-4r6n9olwt-onurqlp-7179.vercel.app/` (`dpl_BBGrf4ub3jHXpZuvnfPt1Ed28jgh`). Bu dal için Preview ortam değişkeni yok; Preview ajan bağlantısı çalışır durumda sayılmaz.
+- Üretime dağıtım yapılmadı; production Vercel/Neon/Meta ortam ayarları değiştirilmedi. Dış kullanıcıya veya WhatsApp grubuna mesaj gönderilmedi.
 - Bu çalışma klasöründe kullanıcı tarafından anılan MASTER MD ve GO1/GO3 durum raporları bulunamadı; yalnızca GO0 raporu ve başlatma TXT'si mevcut. Bu rapor eksik belgeyi varmış gibi varsaymaz.
 
 ## Kalan canlıya geçiş kapıları
