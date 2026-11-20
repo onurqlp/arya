@@ -119,8 +119,10 @@ async function pollOutbox() {
     if (!response.ok) { setBadge("!", "#9c3b3b"); return; }
     const result = await response.json().catch(() => ({}));
     await storageSet({ schedules: Array.isArray(result.schedules) ? result.schedules : [] });
+    const localState = await storageGet(["checkinBaselines"]);
+    const checkinBaselines = localState.checkinBaselines && typeof localState.checkinBaselines === "object" ? localState.checkinBaselines : {};
     for (const tab of tabs) {
-      chrome.tabs.sendMessage(tab.id, { type: "ARYA_SET_SCHEDULES", schedules: result.schedules || [] }).catch(() => {});
+      chrome.tabs.sendMessage(tab.id, { type: "ARYA_SET_SCHEDULES", schedules: result.schedules || [], checkinBaselines }).catch(() => {});
     }
     if (!result.job) return;
     const tab = tabs[0];
@@ -149,18 +151,33 @@ async function pollOutbox() {
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!message || typeof message !== "object") return;
   if (message.type === "ARYA_GET_CONFIG") {
-    storageGet(["schedules"]).then(async (saved) => {
+    storageGet(["schedules", "checkinBaselines"]).then(async (saved) => {
       const settings = await config();
       sendResponse({
         allowedChats: settings.allowedChats || [],
         schedules: Array.isArray(saved.schedules) ? saved.schedules : [],
+        checkinBaselines: saved.checkinBaselines && typeof saved.checkinBaselines === "object" ? saved.checkinBaselines : {},
         configured: Boolean(settings.endpoint && settings.secret)
       });
-    }).catch(() => sendResponse({ allowedChats: [], schedules: [], configured: false }));
+    }).catch(() => sendResponse({ allowedChats: [], schedules: [], checkinBaselines: {}, configured: false }));
     return true;
   }
   if (message.type === "ARYA_TEACHER_DECISION") {
     enqueueDecision(message.payload).then(sendResponse).catch(() => sendResponse({ ok: false }));
+    return true;
+  }
+  if (message.type === "ARYA_SAVE_CHECKIN_BASELINE") {
+    if (!/^[0-9a-f-]{36}$/i.test(message.scheduleId || "") || !Array.isArray(message.messageIds) ||
+        message.messageIds.length > 500 || message.messageIds.some((id) => typeof id !== "string" || id.length > 200) ||
+        !Number.isFinite(Date.parse(message.sentAt || "")) || typeof message.sent !== "boolean") {
+      sendResponse({ ok: false });
+      return false;
+    }
+    storageGet(["checkinBaselines"]).then((saved) => {
+      const checkinBaselines = saved.checkinBaselines && typeof saved.checkinBaselines === "object" ? saved.checkinBaselines : {};
+      checkinBaselines[message.scheduleId] = { messageIds: [...new Set(message.messageIds)], sentAt: message.sentAt, sent: message.sent };
+      return storageSet({ checkinBaselines });
+    }).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
     return true;
   }
   if (message.type === "ARYA_SAVE_CONFIG") {

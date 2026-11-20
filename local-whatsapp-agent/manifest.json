@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Arya WhatsApp Web Yerel Ajanı",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "WhatsApp mesajlarını yerelde işler; panel ile yalnızca program ve teslim durumu eşitler.",
   "permissions": ["storage", "alarms", "tabs"],
   "host_permissions": [
