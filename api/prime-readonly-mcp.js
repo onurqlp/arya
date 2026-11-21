@@ -1,6 +1,7 @@
 
 import { timingSafeEqual } from "node:crypto";
 import { neon } from "@neondatabase/serverless";
+import { getCoordinatorDb } from "../lib/coordinator-db.js";
 
 const MCP_VERSION = "2025-06-18";
 const ROOT = "https://arya-whatsapp-panel.vercel.app";
@@ -46,6 +47,7 @@ const TOOLS = [
  {name:"arya_database_summary",description:"Read only aggregate table counts and latest record times from the ARYA Neon database. Never changes records.",inputSchema:{type:"object",properties:{},additionalProperties:false},annotations:{readOnlyHint:true,destructiveHint:false}},
  {name:"arya_recent_records",description:"Read up to 15 recent ARYA messages or audit events from the existing database. Personal contact details are masked. The full WhatsApp Web browser chat history is not available here.",inputSchema:{type:"object",properties:{kind:{type:"string",enum:["messages","outbound","audit"]},limit:{type:"integer",minimum:1,maximum:15}},required:["kind"],additionalProperties:false},annotations:{readOnlyHint:true,destructiveHint:false}},
  {name:"arya_coordination_schema",description:"Read table names and approximate row counts from the AYDA lesson coordination database if configured. No student-specific data and no writes.",inputSchema:{type:"object",properties:{},additionalProperties:false},annotations:{readOnlyHint:true,destructiveHint:false}},
+ {name:"arya_local_agent_status",description:"Read the latest local ARYA agent heartbeat and WhatsApp Web tab-open flag. A tab-open flag does not prove a logged-in WhatsApp session. No messages, chat content, or sends.",inputSchema:{type:"object",properties:{},additionalProperties:false},annotations:{readOnlyHint:true,destructiveHint:false}},
  {name:"arya_repository_read",description:"Read a single file from a strictly whitelisted set of public source files in the ARYA GitHub repository, never .env or secrets.",inputSchema:{type:"object",properties:{path:{type:"string",enum:[...FILES]}},required:["path"],additionalProperties:false},annotations:{readOnlyHint:true,destructiveHint:false}}
 ];
 function safeEqual(a,b){if(typeof a!=="string"||typeof b!=="string")return false;const x=Buffer.from(a),y=Buffer.from(b);return x.length===y.length&&timingSafeEqual(x,y)}
@@ -114,6 +116,17 @@ async function dispatch(name,args){
   const rows=await q(db,"SELECT table_schema,table_name FROM information_schema.tables WHERE table_type='BASE TABLE' AND table_schema='public' ORDER BY table_name LIMIT 80");
   return {checkedAt:new Date().toISOString(),tables:rows,note:"Schema inventory only, no student records."};
  }
+ if(name==="arya_local_agent_status"){
+  const db=getCoordinatorDb();
+  const rows=await q(db,"SELECT agent_id,last_seen,whatsapp_tab_open FROM public.arya_web_agent_heartbeats ORDER BY last_seen DESC LIMIT 20");
+  const checkedAt=Date.now();
+  const agents=rows.map(row=>{
+   const lastSeenMs=Date.parse(row.last_seen);
+   const secondsSinceLastSeen=Number.isFinite(lastSeenMs)?Math.max(0,Math.floor((checkedAt-lastSeenMs)/1000)):null;
+   return {agentId:row.agent_id,lastSeen:row.last_seen,secondsSinceLastSeen,heartbeatFresh:secondsSinceLastSeen!==null&&secondsSinceLastSeen<=180,whatsappTabOpen:row.whatsapp_tab_open===true};
+  });
+  return {checkedAt:new Date(checkedAt).toISOString(),agents,scope:"heartbeat and tab-open flag only",sendingEnabled:false,note:"A tab-open flag does not confirm WhatsApp login, chat identity, or message delivery. No chat content is read and no messages are sent."};
+ }
  if(name==="arya_repository_read"){
   const path=args?.path;
   if(!FILES.has(path))throw Error("file_not_permitted");
@@ -138,7 +151,7 @@ export default async function handler(req,res){
  const {jsonrpc,id,method,params={}}=request;
  if(jsonrpc!=="2.0"||typeof method!=="string")return fail(res,id??null,-32600,"invalid_request");
  if(id===undefined||id===null)return res.status(202).end();
- if(method==="initialize")return send(res,id,{protocolVersion:MCP_VERSION,capabilities:{tools:{listChanged:false}},serverInfo:{name:"ayda-prime-arya-readonly",version:"1.0.0"},instructions:"All tools are read-only. Never infer that local WhatsApp Web chat history is archived in this service."});
+ if(method==="initialize")return send(res,id,{protocolVersion:MCP_VERSION,capabilities:{tools:{listChanged:false}},serverInfo:{name:"ayda-prime-arya-readonly",version:"1.1.0"},instructions:"All tools are read-only. Local-agent status exposes only heartbeat and a WhatsApp tab-open flag; it does not prove login, expose chat content, or send messages. Never infer that local WhatsApp Web chat history is archived in this service."});
  if(method==="ping")return send(res,id,{});
  if(method==="tools/list")return send(res,id,{tools:TOOLS});
  if(method!=="tools/call")return fail(res,id,-32601,"method_not_found");
