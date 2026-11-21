@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { getCoordinatorDb } from "../lib/coordinator-db.js";
 import { localWhatsAppAgentConfigured, whatsappTransport } from "../lib/whatsapp-transport.js";
 import { acknowledgeLocalWhatsAppJob, claimLocalWhatsAppJob, enqueueDueLocalWhatsAppJobs, ensureLocalWhatsAppOutboxSchema, processLocalWhatsAppTeacherDecision } from "../lib/local-whatsapp-outbox.js";
+import { acknowledgePrimeReport, claimPrimeReport } from "../lib/prime-report-outbox.js";
 
 const SOURCE = "arya-whatsapp-web-local-agent";
 const AGENT_RE = /^arya-local-[a-z0-9-]{6,40}$/;
@@ -47,6 +48,13 @@ export default async function handler(req, res) {
     !UUID_RE.test(body.job_id || "") || !["sent", "uncertain", "blocked"].includes(body.outcome) ||
     (body.error_code !== undefined && (typeof body.error_code !== "string" || !/^[a-z0-9_-]{1,60}$/.test(body.error_code)))
   );
+  const invalidReportPull = body.action === "report-pull" && (Object.keys(body).some((key) => !["source", "agent_id", "action", "whatsapp_tab_open"].includes(key)) ||
+    typeof body.whatsapp_tab_open !== "boolean");
+  const invalidReportAck = body.action === "report-ack" && (
+    Object.keys(body).some((key) => !["source", "agent_id", "action", "job_id", "outcome", "error_code"].includes(key)) ||
+    !UUID_RE.test(body.job_id || "") || !["sent", "uncertain", "blocked"].includes(body.outcome) ||
+    (body.error_code !== undefined && (typeof body.error_code !== "string" || !/^[a-z0-9_-]{1,60}$/.test(body.error_code)))
+  );
   const decisionReasons = ["explicit_confirmation", "non_explicit_reply", "teacher_chat_or_sender_mismatch"];
   const invalidDecision = body.action === "teacher-decision" && (
     Object.keys(body).some((key) => !["source", "agent_id", "action", "scheduleId", "messageId", "messageTime", "decision", "reason"].includes(key)) ||
@@ -55,7 +63,7 @@ export default async function handler(req, res) {
     !["confirmed", "needs_human_review"].includes(body.decision) || !decisionReasons.includes(body.reason)
   );
   if (body.source !== SOURCE || !AGENT_RE.test(body.agent_id || "") ||
-      !["pull", "ack", "teacher-decision"].includes(body.action) || invalidPull || invalidAck || invalidDecision) {
+      !["pull", "ack", "teacher-decision", "report-pull", "report-ack"].includes(body.action) || invalidPull || invalidAck || invalidDecision || invalidReportPull || invalidReportAck) {
     return res.status(400).json({ error: "invalid_agent_request" });
   }
 
@@ -71,6 +79,16 @@ export default async function handler(req, res) {
     if (body.action === "ack") {
       const acknowledged = await acknowledgeLocalWhatsAppJob(db, body.agent_id, body);
       return res.status(200).json(acknowledged);
+    }
+    if (body.action === "report-ack") {
+      return res.status(200).json(await acknowledgePrimeReport(db, body.agent_id, body));
+    }
+    if (body.action === "report-pull") {
+      await db.query("INSERT INTO arya_web_agent_heartbeats (agent_id, last_seen, whatsapp_tab_open) VALUES ($1, NOW(), $2) " +
+        "ON CONFLICT (agent_id) DO UPDATE SET last_seen = NOW(), whatsapp_tab_open = EXCLUDED.whatsapp_tab_open", [body.agent_id, body.whatsapp_tab_open]);
+      if (!body.whatsapp_tab_open) return res.status(200).json({ job: null, target: "ARYA ONAY", reason: "whatsapp_tab_closed" });
+      const result = await claimPrimeReport(db, body.agent_id);
+      return res.status(200).json({ ...result, target: "ARYA ONAY", send_once: true });
     }
     await db.query("INSERT INTO arya_web_agent_heartbeats (agent_id, last_seen, whatsapp_tab_open) VALUES ($1, NOW(), $2) " +
       "ON CONFLICT (agent_id) DO UPDATE SET last_seen = NOW(), whatsapp_tab_open = EXCLUDED.whatsapp_tab_open", [body.agent_id, body.whatsapp_tab_open]);
