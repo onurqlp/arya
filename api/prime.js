@@ -9,7 +9,7 @@ function fail(res, status, error) {
 }
 function config() {
   const id = process.env.AYDA_PRIME_SESSION_ID;
-  const key = process.env.OPENAI_API_KEY;
+  const key = process.env.AYDA_PRIME_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
   if (!/^sess_[a-zA-Z0-9_-]+$/.test(id || "")) return { error: "prime_session_not_configured" };
   if (!key) return { error: "openai_not_configured" };
   return { id, key };
