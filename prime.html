@@ -26,6 +26,23 @@ main{max-width:970px;margin:auto;padding:16px clamp(12px,2vw,24px) 22px}
 .iconbtn{min-width:45px;height:50px;border:1px solid var(--line);border-radius:12px;background:#263443;color:#e2f5ed;cursor:pointer}
 .hint{color:#8a9eaf;font-size:11px;margin:9px 3px;line-height:1.5}
 .error{margin:10px 0;padding:11px 13px;background:#47252a;border:1px solid #7e4650;color:#ffd5d9;border-radius:10px;font-size:13px}
+.reportBridge{margin:0 0 13px;padding:11px 13px;background:#14232c;border:1px solid #355044;border-radius:13px}
+.reportBridge summary{display:flex;justify-content:space-between;gap:12px;align-items:center;cursor:pointer;color:#e6f7f0;font-size:14px}
+.reportBridge summary span{color:var(--mint);font-size:12px;white-space:nowrap}
+.reportBridge p{color:var(--muted);font-size:12px;line-height:1.5;margin:11px 0}
+.reportBridge textarea{width:100%;min-height:108px;resize:vertical;padding:12px;background:#101a22;border:1px solid #344a58;border-radius:10px;color:var(--text);line-height:1.5}
+.reportActions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.reviewCheck{display:flex;gap:9px;align-items:flex-start;color:#c8d7e1;font-size:12px;line-height:1.5;margin:10px 0}
+.reportPreview{margin-top:12px;padding:12px;background:#101a22;border:1px solid #426457;border-radius:10px}
+.reportPreview pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:9px 0 12px;color:#f2f8fc;font:inherit;font-size:13px;line-height:1.5}
+.reportTarget{font-size:12px;color:var(--mint);font-weight:800}
+.reportStatus{font-size:12px;color:#b4c5d2;margin-top:9px;line-height:1.5}
+.reportList{display:grid;gap:8px;margin-top:12px}
+.reportItem{padding:10px;background:#101a22;border:1px solid var(--line);border-radius:9px;cursor:pointer}
+.reportItem strong{font-size:12px;color:#d9ece6}
+.reportItem pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:7px 0 0;color:#a9bbc9;font:inherit;font-size:11px;line-height:1.45}
+.reportBridge .error{margin-top:10px}
+
 .auth{max-width:450px;margin:10vh auto;padding:28px;background:var(--panel);border:1px solid var(--line);border-radius:18px}
 .auth p{color:var(--muted);line-height:1.6}.auth input{width:100%;padding:13px;margin:12px 0;background:#111b25;color:var(--text);border:1px solid #455361;border-radius:10px}
 .auth .primary{width:100%}.hidden{display:none!important}
@@ -35,10 +52,28 @@ main{max-width:970px;margin:auto;padding:16px clamp(12px,2vw,24px) 22px}
 <body>
 <header><div class="brand"><div class="logo">P</div><div><h1>AYDA PRIME</h1><small>Yapay Zekâ Genel Müdür</small></div></div><div class="links"><a href="/">← ARYA Paneli</a><a href="/prime-mind.html">◉ Zihin Günlüğü</a><button class="softbtn hidden" id="exit">Çıkış</button></div></header>
 <section id="auth" class="auth hidden"><h2>Yönetici Girişi</h2><p>PRIME'a erişmek için mevcut ARYA yönetici parolanla oturum aç.</p><form id="loginForm"><label for="password">Yönetici parolası</label><input id="password" type="password" autocomplete="current-password" required><button class="primary" type="submit">Giriş yap</button></form><div id="authError" class="error hidden"></div></section>
-<main id="main" class="hidden"><div class="top"><div class="status"><span class="dot" id="dot"></span><span id="status">Bağlanıyor…</span></div><div style="display:flex;align-items:center;gap:9px"><button class="softbtn" type="button" id="speakToggle" title="PRIME yanıtlarını seslendir">🔈 Ses kapalı</button><span id="model">GPT-6 Luna</span></div></div><section id="chat" class="chat" role="log" aria-live="polite"></section><div id="error" class="error hidden"></div><form id="sendForm" class="form"><button class="iconbtn" type="button" id="mic" title="Sesle yaz" aria-label="Sesle yaz">🎙</button><textarea id="message" rows="1" placeholder="PRIME ile konuş… (Enter: gönder, Shift+Enter: satır)" aria-label="Mesaj" maxlength="6000"></textarea><button class="primary" type="submit" id="send">Gönder</button></form><div class="hint">Özel yönetici sohbeti · Aynı OpenAI ajan oturumunda devam eder. Mikrofona basarak sesle yazabilirsin. Canlı işlemlerde araç ve güvenlik izinleri geçerlidir.</div></main>
+<main id="main" class="hidden"><div class="top"><div class="status"><span class="dot" id="dot"></span><span id="status">Bağlanıyor…</span></div><div style="display:flex;align-items:center;gap:9px"><button class="softbtn" type="button" id="speakToggle" title="PRIME yanıtlarını seslendir">🔈 Ses kapalı</button><span id="model">GPT-6 Luna</span></div></div><details class="reportBridge" id="reportBridge">
+<summary><strong>PRIME raporunu WhatsApp'ta hazırla</strong><span>Hedef: ARYA ONAY</span></summary>
+<p>Rapor metnini buraya aktar. Önce tam metni ve sabit hedefi görüp onaylarsın; onaylanınca yerel WhatsApp Web ajanı tek gönderim denemesi yapar.</p>
+<p>Öğrenci adı, telefon, kimlik numarası, sağlık veya ödeme bilgisi ekleme. Otomatik denetim yaygın telefon, e-posta ve 11 haneli kimlik biçimlerini engeller.</p>
+<textarea id="reportInput" maxlength="3000" placeholder="PRIME raporunun gönderilecek tam metni…" aria-label="Gönderilecek rapor metni"></textarea>
+<label class="reviewCheck"><input id="reportDataReviewed" type="checkbox"> Metni kişisel ve hassas öğrenci verileri açısından gözden geçirdim.</label>
+<div class="reportActions"><button class="softbtn" type="button" id="prepareReport">Önizlemeyi oluştur</button><span class="reportStatus" id="reportCharCount">0 / 3000</span></div>
+<div class="error hidden" id="reportError"></div>
+<section class="reportPreview hidden" id="reportPreview">
+<div class="reportTarget" id="reportPreviewTarget">Sabit hedef: ARYA ONAY</div>
+<pre id="reportPreviewBody"></pre>
+<div class="reportStatus" id="reportPreviewStatus">Taslak önizlemesi. Gönderim için ayrı onay gerekir.</div>
+<div class="reportActions"><button class="primary" type="button" id="approveReport">Bu metni ARYA ONAY'a gönder</button><button class="softbtn" type="button" id="cancelReport">Taslağı iptal et</button></div>
+</section>
+<div class="reportStatus" id="reportQueueStatus">Kuyruk durumu yükleniyor…</div>
+<div class="reportList" id="reportList"></div>
+</details>
+<section id="chat" class="chat" role="log" aria-live="polite"></section><div id="error" class="error hidden"></div><form id="sendForm" class="form"><button class="iconbtn" type="button" id="mic" title="Sesle yaz" aria-label="Sesle yaz">🎙</button><textarea id="message" rows="1" placeholder="PRIME ile konuş… (Enter: gönder, Shift+Enter: satır)" aria-label="Mesaj" maxlength="6000"></textarea><button class="primary" type="submit" id="send">Gönder</button></form><div class="hint">Özel yönetici sohbeti · Aynı OpenAI ajan oturumunda devam eder. Mikrofona basarak sesle yazabilirsin. Canlı işlemlerde araç ve güvenlik izinleri geçerlidir.</div></main>
 <script>
 const $=id=>document.getElementById(id);
 let busy=false, refreshing=false, lastData="", timer=null, isAuthed=false, speakReplies=false, lastSpokenId="";
+let reportDraft=null, reportBusy=false, lastReportRefresh=0;
 const api=async(url,init={})=>{
  const res=await fetch(url,{credentials:"same-origin",cache:"no-store",...init,headers:{Accept:"application/json",...(init.body?{"Content-Type":"application/json"}:{}),...(init.headers||{})}});
  const json=await res.json().catch(()=>({}));
@@ -75,6 +110,7 @@ async function refresh(){
  try{
  const data=await api("/api/prime");
  paintMessages(data.messages||[]);
+ if(Date.now()-lastReportRefresh>9000)refreshReports();
  const running=data.status==="in_progress"||data.status==="queued";
  $("status").textContent=data.needsAction?"İşlem onayı bekliyor":running?"PRIME düşünüyor…":data.status==="idle"?"Hazır · Canlı":data.status||"Bağlı";
  $("dot").className="dot "+(data.status==="idle"?"ok":data.status==="failed"?"fail":"");
@@ -86,6 +122,49 @@ async function refresh(){
  if(e.status===401){showAuth();return;}
  errorDisplay(({prime_session_not_configured:"PRIME oturumu henüz bağlanmadı.",openai_not_configured:"OpenAI API anahtarı eksik.",openai_key_or_project_mismatch:"OpenAI anahtarı bu ajana erişemiyor. Anahtarın doğru Platform projesine ait olması gerekiyor.",openai_session_not_found:"PRIME oturumu bulunamadı."})[e.message]||"Bağlantı: "+e.message);
  }finally{refreshing=false;}
+}
+function reportError(text){const node=$("reportError");node.textContent=text;node.classList.remove("hidden")}
+function clearReportError(){$("reportError").classList.add("hidden")}
+const reportStatusText=status=>({draft:"Önizleme hazır · onay bekliyor",approved:"Onaylandı · yerel ajan tek gönderim denemesini bekliyor",sending:"WhatsApp Web gönderim denemesinde",sent_verified:"Gönderildi · WhatsApp Web giden mesaj balonunu doğruladı",uncertain:"Belirsiz · otomatik tekrar yapılmadı",blocked:"Gönderim durduruldu · otomatik tekrar yapılmadı",cancelled:"İptal edildi"})[status]||status;
+function showReportPreview(report){
+ reportDraft=report;
+ $("reportPreviewTarget").textContent="Sabit hedef: "+report.target_chat;
+ $("reportPreviewBody").textContent=report.body;
+ $("reportPreviewStatus").textContent=reportStatusText(report.status);
+ $("reportPreview").classList.remove("hidden");
+ const editable=report.status==="draft";
+ $("approveReport").classList.toggle("hidden",!editable);
+ $("cancelReport").classList.toggle("hidden",!editable);
+}
+function paintReportList(reports){
+ const host=$("reportList");host.replaceChildren();
+ for(const report of reports||[]){
+  const item=document.createElement("article");item.className="reportItem";
+  const title=document.createElement("strong");
+  const when=report.created_at?new Date(report.created_at).toLocaleString("tr-TR",{timeZone:"Europe/Istanbul"}):"";
+  title.textContent=reportStatusText(report.status)+(when?" · "+when:"");
+  const body=document.createElement("pre");body.textContent=report.body||"";
+  item.append(title,body);
+  item.onclick=()=>showReportPreview(report);
+  item.tabIndex=0;item.setAttribute("role","button");
+  item.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();showReportPreview(report)}};
+  host.append(item);
+ }
+}
+async function refreshReports(){
+ if(!isAuthed)return;
+ lastReportRefresh=Date.now();
+ try{
+  const data=await api("/api/prime-report");
+  $("reportQueueStatus").textContent="Rapor kuyruğu bağlı · sabit hedef ARYA ONAY";
+  paintReportList(data.reports||[]);
+  if(reportDraft){
+   const current=(data.reports||[]).find(item=>item.id===reportDraft.id);
+   if(current)showReportPreview(current);
+  }
+ }catch(e){
+  $("reportQueueStatus").textContent=e.status===401?"PRIME oturumu gerekli.":"Rapor kuyruğu hazır değil; veritabanı geçişi tamamlanmış olmalı.";
+ }
 }
 $("loginForm").onsubmit=async(e)=>{
  e.preventDefault();$("authError").classList.add("hidden");
@@ -100,10 +179,45 @@ $("sendForm").onsubmit=async(e)=>{
  catch(err){errorDisplay("Mesaj gönderilemedi: "+err.message);}
  finally{busy=false;$("send").disabled=false;}
 };
+$("reportInput").oninput=()=>{$("reportCharCount").textContent=$("reportInput").value.length+" / 3000";};
+$("prepareReport").onclick=async()=>{
+ if(reportBusy)return;
+ clearReportError();
+ const body=$("reportInput").value.trim();
+ if(!body){reportError("Önizleme için rapor metni gerekli.");return;}
+ if(!$("reportDataReviewed").checked){reportError("Önce metnin kişisel ve hassas veriler içermediğini onayla.");return;}
+ reportBusy=true;$("prepareReport").disabled=true;
+ try{
+  const report=await api("/api/prime-report",{method:"POST",body:JSON.stringify({action:"draft",idempotencyKey:crypto.randomUUID(),body,dataReviewed:true})});
+  showReportPreview(report);await refreshReports();
+ }catch(e){
+  const labels={report_contains_sensitive_identifier:"Telefon, e-posta veya 11 haneli kimlik benzeri bir bilgi bulundu. Metni temizleyip yeniden hazırla.",invalid_report_body:"Rapor boş olamaz ve 3000 karakteri geçemez.",coordinator_store_not_configured:"Koordinatör veritabanı bağlantısı kurulu değil.",report_draft_storage_unavailable:"Taslak kaydedilemedi."};
+  reportError(labels[e.message]||"Taslak oluşturulamadı: "+e.message);
+ }finally{reportBusy=false;$("prepareReport").disabled=false;}
+};
+$("approveReport").onclick=async()=>{
+ if(reportBusy||!reportDraft||reportDraft.status!=="draft")return;
+ reportBusy=true;$("approveReport").disabled=true;clearReportError();
+ try{
+  const approved=await api("/api/prime-report",{method:"POST",body:JSON.stringify({action:"approve",id:reportDraft.id,contentHash:reportDraft.content_sha256})});
+  showReportPreview(approved);$("reportPreviewStatus").textContent=reportStatusText(approved.status)+" · rapor metni değiştirilemez.";
+  await refreshReports();
+ }catch(e){reportError("Onay kaydedilemedi: "+e.message)}
+ finally{$("approveReport").disabled=false;reportBusy=false;}
+};
+$("cancelReport").onclick=async()=>{
+ if(reportBusy||!reportDraft||reportDraft.status!=="draft")return;
+ reportBusy=true;clearReportError();
+ try{
+  await api("/api/prime-report",{method:"POST",body:JSON.stringify({action:"cancel",id:reportDraft.id})});
+  reportDraft=null;$("reportPreview").classList.add("hidden");await refreshReports();
+ }catch(e){reportError("Taslak iptal edilemedi: "+e.message)}
+ finally{reportBusy=false;}
+};
 $("message").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("sendForm").requestSubmit();}};
 const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
 if(!SpeechRecognition){$("mic").disabled=true;$("mic").title="Bu tarayıcıda sesle yazma desteklenmiyor";}
 else{$("mic").onclick=()=>{const rec=new SpeechRecognition();rec.lang="tr-TR";rec.interimResults=false;rec.onresult=e=>{$("message").value=($("message").value+" "+e.results[0][0].transcript).trim();$("message").focus();};rec.onerror=()=>errorDisplay("Mikrofon izni veya ses tanıma hatası.");rec.start();};}
-(async()=>{try{const s=await api("/api/admin/session");if(s.authenticated){showMain();await refresh()}else showAuth();}catch{showAuth();}timer=setInterval(refresh,4000);})();
+(async()=>{try{const s=await api("/api/admin/session");if(s.authenticated){showMain();await refresh()}else showAuth();}catch{showAuth();}timer=setInterval(refresh,4000);setInterval(()=>{if(Date.now()-lastReportRefresh>9000)refreshReports()},5000);})();
 </script>
 </body></html>
