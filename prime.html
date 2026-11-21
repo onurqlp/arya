@@ -73,7 +73,7 @@ main{max-width:970px;margin:auto;padding:16px clamp(12px,2vw,24px) 22px}
 <script>
 const $=id=>document.getElementById(id);
 let busy=false, refreshing=false, lastData="", timer=null, isAuthed=false, speakReplies=false, lastSpokenId="";
-let reportDraft=null, reportBusy=false, lastReportRefresh=0;
+let reportDraft=null, reportBusy=false, lastReportRefresh=0, reportSendingEnabled=false;
 const api=async(url,init={})=>{
  const res=await fetch(url,{credentials:"same-origin",cache:"no-store",...init,headers:{Accept:"application/json",...(init.body?{"Content-Type":"application/json"}:{}),...(init.headers||{})}});
  const json=await res.json().catch(()=>({}));
@@ -134,7 +134,10 @@ function showReportPreview(report){
  $("reportPreview").classList.remove("hidden");
  const editable=report.status==="draft";
  $("approveReport").classList.toggle("hidden",!editable);
+ $("approveReport").disabled=editable&&!reportSendingEnabled;
+ $("approveReport").title=reportSendingEnabled?"Raporu onayla":"Genel WhatsApp gönderim anahtarı kapalı";
  $("cancelReport").classList.toggle("hidden",!editable);
+ if(editable&&!reportSendingEnabled)$("reportPreviewStatus").textContent=reportStatusText(report.status)+" · genel gönderim anahtarı kapalı; onay kuyruğa alınmıyor.";
 }
 function paintReportList(reports){
  const host=$("reportList");host.replaceChildren();
@@ -156,7 +159,8 @@ async function refreshReports(){
  lastReportRefresh=Date.now();
  try{
   const data=await api("/api/prime-report");
-  $("reportQueueStatus").textContent="Rapor kuyruğu bağlı · sabit hedef ARYA ONAY";
+  reportSendingEnabled=data.sending_enabled===true;
+  $("reportQueueStatus").textContent=reportSendingEnabled?"Rapor kuyruğu bağlı · ARYA ONAY · gönderim anahtarı açık":"Önizleme bağlı · ARYA ONAY · genel gönderim anahtarı kapalı";
   paintReportList(data.reports||[]);
   if(reportDraft){
    const current=(data.reports||[]).find(item=>item.id===reportDraft.id);
@@ -197,12 +201,13 @@ $("prepareReport").onclick=async()=>{
 };
 $("approveReport").onclick=async()=>{
  if(reportBusy||!reportDraft||reportDraft.status!=="draft")return;
+ if(!reportSendingEnabled){reportError("Genel WhatsApp gönderim anahtarı kapalı. Öğretmen gönderimlerini etkilememek için açmadım.");return;}
  reportBusy=true;$("approveReport").disabled=true;clearReportError();
  try{
   const approved=await api("/api/prime-report",{method:"POST",body:JSON.stringify({action:"approve",id:reportDraft.id,contentHash:reportDraft.content_sha256})});
   showReportPreview(approved);$("reportPreviewStatus").textContent=reportStatusText(approved.status)+" · rapor metni değiştirilemez.";
   await refreshReports();
- }catch(e){reportError("Onay kaydedilemedi: "+e.message)}
+ }catch(e){reportError(e.message==="sending_disabled"?"Gönderim anahtarı kapalı; taslak onaylanmadı.":"Onay kaydedilemedi: "+e.message)}
  finally{$("approveReport").disabled=false;reportBusy=false;}
 };
 $("cancelReport").onclick=async()=>{
