@@ -24,10 +24,18 @@ export default async function handler(req, res) {
   if (req.method === "POST" && !sameOrigin(req)) return fail(res, 403, "origin_not_allowed");
   try {
     const db = getCoordinatorDb();
-    if (req.method === "GET") return res.status(200).json({
-      target: "ARYA ONAY",
-      reports: await listPrimeReports(db)
-    });
+    if (req.method === "GET") {
+      const [reports, settingsRows] = await Promise.all([
+        listPrimeReports(db),
+        db.query("SELECT paused, dry_run, send_enabled FROM arya_web_agent_settings WHERE id = 1")
+      ]);
+      const settings = settingsRows[0];
+      return res.status(200).json({
+        target: "ARYA ONAY",
+        sending_enabled: Boolean(settings && !settings.paused && !settings.dry_run && settings.send_enabled),
+        reports
+      });
+    }
     const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
     if (body.action === "draft") {
       return res.status(201).json(await createPrimeReportDraft(db, {
@@ -38,6 +46,8 @@ export default async function handler(req, res) {
     }
     if (body.action === "approve") {
       if (!UUID_RE.test(body.id || "")) return fail(res, 400, "invalid_report_id");
+      const settings = (await db.query("SELECT paused, dry_run, send_enabled FROM arya_web_agent_settings WHERE id = 1"))[0];
+      if (!settings || settings.paused || settings.dry_run || !settings.send_enabled) return fail(res, 409, "sending_disabled");
       return res.status(200).json(await approvePrimeReport(db, body.id, body.contentHash));
     }
     if (body.action === "cancel") {
