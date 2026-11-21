@@ -23,6 +23,16 @@ export default async function handler(req,res){
   const items=await itemsResponse.json().catch(()=>({}));
   const saved=await agentResponse.json().catch(()=>({}));
   const tools=arr=>(Array.isArray(arr)?arr:[]).map(t=>({type:t.type,server_label:t.server_label,connection_origin:t.connection_origin,required:t.required,server_url:t.transport?.server_url,credential_id:t.credential_id}));
+  const vaultResponse=await fetch("https://api.openai.com/v1/vaults?limit=30",{headers:hdr,cache:"no-store",signal:AbortSignal.timeout(12000)}).catch(()=>null);
+  const vaultData=await vaultResponse?.json().catch(()=>({}))||{};
+  const vaultList=Array.isArray(vaultData.data)?vaultData.data:[];
+  const vaults=await Promise.all(vaultList.slice(0,10).map(async v=>{
+    try{
+      const r=await fetch("https://api.openai.com/v1/vaults/"+encodeURIComponent(v.id)+"/credentials?limit=30",{headers:hdr,signal:AbortSignal.timeout(12000),cache:"no-store"});
+      const body=await r.json().catch(()=>({}));
+      return {id:v.id,name:v.name,status:v.status,http:r.status,credentials:(Array.isArray(body.data)?body.data:[]).map(c=>({id:c.id,name:c.name,auth_type:c.auth?.type,server_url:c.server_url||c.auth?.server_url||null,metadata:c.metadata||null}))};
+    }catch{return {id:v.id,name:v.name,error:"cannot_list"}}
+  }));
   const all=Array.isArray(items.data)?items.data:[];
   const extract=(item)=>{
    const c=Array.isArray(item.content)?item.content:[];
@@ -33,7 +43,7 @@ export default async function handler(req,res){
   return res.status(200).json({
    sessionHttp:sessionResponse.status,itemsHttp:itemsResponse.status,
    id:s.id,agentId:s.agent_id||s.agent?.id||null,status:s.status,
-   count:all.length,items:all.slice(0,30).map(extract),agentConfigHttp:agentResponse.status,savedAgentTools:tools(saved.tools),sessionTools:tools(s.agent?.tools),sessionVaultCount:s.vault_ids?.length??null
+   count:all.length,items:all.slice(0,30).map(extract),agentConfigHttp:agentResponse.status,savedAgentTools:tools(saved.tools),sessionTools:tools(s.agent?.tools),sessionVaultCount:s.vault_ids?.length??null,vaultsHttp:vaultResponse?.status||0,vaults
   });
  }catch(e){return res.status(502).json({error:e?.name==="TimeoutError"?"timeout":"upstream_error"});}
 }
