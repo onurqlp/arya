@@ -13,6 +13,16 @@ export default async function handler(req,res){
  if(!key||!sid)return res.status(503).json({error:"not_configured"});
  const hdr={Authorization:"Bearer "+key,"OpenAI-Beta":"agents=v1",Accept:"application/json"};
 
+ if(req.method==="POST"&&req.headers["x-prime-probe-action"]==="verify-tools"){
+  const text="PRIME: ayda_n8n MCP bağlantısını fiilen doğrula. Yalnızca erişebildiğin n8n araçlarını ve erişilebilir iş akışı adlarını oku; hiçbir iş akışını çalıştırma, değiştirme veya oluşturma. Gözlemlediğin somut sonucu tek paragrafta yaz.";
+  const r=await fetch("https://api.openai.com/v1/agents/sessions/"+encodeURIComponent(sid)+"/events",{
+   method:"POST",headers:{...hdr,"Content-Type":"application/json","Idempotency-Key":"5ea61cbf-4d64-4e76-b46b-26d30cbd5d25"},
+   body:JSON.stringify({events:[{type:"agent.session.input.message",input:[{role:"user",content:[{type:"input_text",text}]}]}]}),
+   cache:"no-store",signal:AbortSignal.timeout(25000)
+  });
+  const body=await r.json().catch(()=>({}));
+  return res.status(200).json({sendHttp:r.status,error:r.ok?null:(body.error?.message||body.error||"upstream_error")});
+ }
  if(req.method==="POST"){
   const mcp={type:"mcp",server_label:"ayda_n8n",transport:{type:"http",server_url:"https://ayda.app.n8n.cloud/mcp-server/http"},
    connection_origin:"service",credential_id:"credential_fdb9ce6e6d0d406f9e00f39fd5ff673cd4a28662da8e4f10b8",required:false};
