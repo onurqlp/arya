@@ -1,4 +1,5 @@
 (() => {
+  const PRIME_REPORT_TARGET = "ARYA ONAY";
   const seen = new Set();
   let allowedChats = new Set();
   let schedules = [];
@@ -157,10 +158,10 @@
     return clean(node.innerText || node.textContent);
   }
 
-  async function openExactChat(target) {
+  async function openExactChat(target, options = {}) {
     const current = activeChatName().normalize("NFC").toLocaleLowerCase("tr-TR");
     const wanted = clean(target).normalize("NFC").toLocaleLowerCase("tr-TR");
-    if (current === wanted) return true;
+    if (current === wanted && !options.requireUnique) return true;
     const searchButton = document.querySelector('[data-testid="chat-list-search"]') ||
       [...document.querySelectorAll('button,[role="button"]')].find((node) =>
         /search|ara/i.test((node.getAttribute("aria-label") || "") + " " + (node.getAttribute("title") || "")));
@@ -171,9 +172,14 @@
     if (!searchBox) return false;
     const entered = editableText(searchBox, target);
     if (entered.normalize("NFC").toLocaleLowerCase("tr-TR") !== wanted) return false;
-    const result = await waitFor(() => [...document.querySelectorAll('[data-testid="cell-frame-container"],[role="gridcell"],[role="listitem"]')]
-      .find((node) => [...node.querySelectorAll('[title]')].some((titleNode) =>
-        clean(titleNode.getAttribute("title")).normalize("NFC").toLocaleLowerCase("tr-TR") === wanted)));
+    const result = await waitFor(() => {
+      const primary = [...document.querySelectorAll('[data-testid="cell-frame-container"]')];
+      const candidates = primary.length ? primary : [...document.querySelectorAll('[role="gridcell"],[role="listitem"]')];
+      const exact = candidates.filter((node) => [...node.querySelectorAll('[title]')].some((titleNode) =>
+        clean(titleNode.getAttribute("title")).normalize("NFC").toLocaleLowerCase("tr-TR") === wanted));
+      if (options.requireUnique && exact.length !== 1) return false;
+      return exact[0] || false;
+    });
     if (!result) return false;
     result.click();
     const opened = await waitFor(() => activeChatName().normalize("NFC").toLocaleLowerCase("tr-TR") === wanted, 7000);
@@ -232,6 +238,45 @@
     return { outcome: "uncertain", error_code: "outgoing_bubble_not_observed" };
   }
 
+  async function reportBodyHash(value) {
+    const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+    return Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  }
+
+  async function sendPrimeReport(job) {
+    const targetKey = clean(PRIME_REPORT_TARGET).normalize("NFC").toLocaleLowerCase("tr-TR");
+    if (!job || job.job_type !== "prime_report" ||
+        clean(job.chat_name).normalize("NFC").toLocaleLowerCase("tr-TR") !== targetKey) {
+      return { outcome: "blocked", error_code: "prime_report_target_mismatch" };
+    }
+    if (typeof job.body !== "string" || !job.body.trim() || job.body.length > 3000 ||
+        !/^[a-f0-9]{64}$/.test(job.content_sha256 || "") || await reportBodyHash(job.body) !== job.content_sha256) {
+      return { outcome: "blocked", error_code: "prime_report_hash_mismatch" };
+    }
+    if (!await openExactChat(PRIME_REPORT_TARGET, { requireUnique: true })) {
+      return { outcome: "blocked", error_code: "prime_report_exact_target_not_unique" };
+    }
+    if (activeChatName().normalize("NFC").toLocaleLowerCase("tr-TR") !== targetKey) {
+      return { outcome: "blocked", error_code: "prime_report_active_target_mismatch" };
+    }
+    const composer = composerNode();
+    const sendButton = document.querySelector('[data-testid="send"]') || document.querySelector('footer button[aria-label="Send"], footer button[aria-label="Gönder"]');
+    if (!composer || !sendButton) return { outcome: "blocked", error_code: "composer_not_ready" };
+    const before = outgoingCount(job.body);
+    const entered = editableText(composer, job.body);
+    if (entered !== clean(job.body)) return { outcome: "blocked", error_code: "draft_verification_failed" };
+    if (activeChatName().normalize("NFC").toLocaleLowerCase("tr-TR") !== targetKey) {
+      return { outcome: "blocked", error_code: "prime_report_active_target_changed" };
+    }
+    sendButton.click();
+    const deadline = Date.now() + 9000;
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      if (outgoingCount(job.body) > before) return { outcome: "sent" };
+    }
+    return { outcome: "uncertain", error_code: "outgoing_bubble_not_observed" };
+  }
+
   function start() {
     chrome.runtime.sendMessage({ type: "ARYA_GET_CONFIG" }, (reply) => {
       allowedChats = new Set((reply?.allowedChats || []).map((name) => clean(name).normalize("NFC").toLocaleLowerCase("tr-TR")));
@@ -253,6 +298,10 @@
       sendResponse({ ok: true });
       scanTeacherReplies().catch(() => {});
       return false;
+    }
+    if (message?.type === "ARYA_SEND_PRIME_REPORT") {
+      sendPrimeReport(message.job).then(sendResponse).catch(() => sendResponse({ outcome: "uncertain", error_code: "prime_report_observation_failed" }));
+      return true;
     }
     if (message?.type !== "ARYA_SEND_OUTBOX_JOB") return;
     sendToActiveExactChat(message.job).then(sendResponse).catch(() => sendResponse({ outcome: "uncertain", error_code: "send_observation_failed" }));
