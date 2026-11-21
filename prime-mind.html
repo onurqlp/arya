@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0a1119">
+<title>AYDA PRIME • Zihin Günlüğü</title>
+<style>
+:root{font:15px/1.55 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color-scheme:dark;--bg:#091018;--card:#14212d;--ink:#e8f4fa;--muted:#91a7b8;--line:#2b3e4d;--mint:#66e3bd}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(900px 460px at 85% -8%,#1b3438 0%,transparent 70%),var(--bg);color:var(--ink)}
+a{color:inherit;text-decoration:none}button,input{font:inherit}button{cursor:pointer}
+.shell{min-height:100vh;display:grid;grid-template-columns:255px minmax(0,1fr)}
+aside{background:#101b25;border-right:1px solid #243644;padding:26px 18px;display:flex;flex-direction:column;gap:26px}
+.logo{display:flex;align-items:center;gap:12px}.mark{background:linear-gradient(145deg,#80f3cf,#39ad91);color:#08291f;width:44px;height:44px;border-radius:15px;display:grid;place-items:center;font-weight:900;font-size:19px}.logo strong{font-size:18px}.logo small{display:block;color:#9caeba;font-size:12px}
+.menu{display:grid;gap:7px}.menu a{padding:12px 13px;border-radius:11px;color:#bdcfdc;font-weight:650;font-size:13px}.menu a:hover,.menu a.active{background:#21373d;color:#abfbe0}.menu a.active{box-shadow:inset 3px 0 var(--mint)}
+.side-note{margin-top:auto;color:#9cb0be;font-size:12px;line-height:1.65;border:1px solid #35535a;background:#142b31;border-radius:12px;padding:14px}
+main{min-width:0;padding:32px clamp(18px,4vw,56px) 56px;max-width:1290px;width:100%}
+.top{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:24px}.crumb{font-size:12px;color:#a8b8c6}.state{display:inline-flex;align-items:center;gap:8px;border:1px solid #35585a;border-radius:99px;color:#b8f6e4;background:#15302e;padding:8px 12px;font-size:12px;font-weight:700}.dot{width:8px;height:8px;background:#57d2ad;border-radius:50%}
+.heading{margin:0 0 25px}.eyebrow{color:var(--mint);letter-spacing:1.4px;font-weight:800;font-size:12px;text-transform:uppercase}.heading h1{font-size:clamp(28px,3vw,42px);line-height:1.2;margin:9px 0}.heading p{color:var(--muted);margin:0;font-size:14px;max-width:740px}
+.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin-bottom:27px}
+.metric,.entry,.note,.auth{background:linear-gradient(155deg,#172631,#111c27);border:1px solid var(--line);border-radius:16px;box-shadow:0 12px 27px #0002}
+.metric{padding:19px}.metric span{color:#9ab0bf;font-size:12px}.metric strong{display:block;font-size:23px;letter-spacing:-.6px;margin-top:7px}.metric small{color:#78929f;font-size:12px}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 248px;gap:21px;align-items:start}
+.sectionTitle{font-size:17px;font-weight:800;margin:0 0 12px}.entry{padding:23px;margin-bottom:16px}
+.entryHead{display:flex;align-items:flex-start;justify-content:space-between;gap:15px}.entry h3{font-size:20px;line-height:1.35;margin:7px 0 3px}.stamp{font-size:11px;color:#93a6b7}.kind{font-size:11px;color:#b9f7e2;font-weight:800;letter-spacing:.6px;text-transform:uppercase}.priority{font-size:11px;border:1px solid #51616a;color:#d4e4ea;border-radius:8px;padding:4px 9px;white-space:nowrap}
+.block{margin-top:18px}.block b{font-size:12px;letter-spacing:.5px;color:#a1f1d6;display:block;margin-bottom:5px}.block p{margin:0;color:#d6e2ea;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}.block li{color:#aebfcd;overflow-wrap:anywhere;font-size:13px;margin:5px 0}
+.divider{border-top:1px solid #2b3c46;margin:19px 0}.subtle{color:#8ea6b7;font-size:12px}.note{padding:20px}.note h3{font-size:14px;margin:0 0 9px}.note p{color:#a3b6c4;font-size:12px;line-height:1.7;margin:0 0 14px}.note strong{color:#e9f6f8}.note .small{font-size:12px;color:#72d9bc}
+.empty{border:1px dashed #3a5a5c;border-radius:14px;padding:30px;color:#a7c0c8;background:#12232b}.error{background:#452831;color:#f5c6c9;padding:13px;border-radius:11px;margin:12px 0}
+.auth{max-width:440px;padding:24px;margin:6vh auto}.auth input{display:block;width:100%;padding:13px;margin:15px 0;background:#0d1a24;color:#f2f8fc;border:1px solid #3a5260;border-radius:10px}.primary{background:var(--mint);color:#05251e;border:0;font-weight:800;border-radius:11px;padding:13px 18px}.primary:disabled{opacity:.6}.hidden{display:none!important}
+@media(max-width:1000px){.grid{grid-template-columns:1fr}.note{max-width:none}.shell{grid-template-columns:1fr}aside{padding:14px 18px;gap:10px;border-right:0;border-bottom:1px solid var(--line)}.side-note{display:none}.menu{display:flex;flex-wrap:wrap}.menu a{padding:8px 10px}main{padding:25px 17px 45px}}
+@media(max-width:520px){.metrics{grid-template-columns:1fr 1fr}.metric:last-child{grid-column:1/-1}.entry{padding:17px}.entry h3{font-size:18px}.metric{padding:14px}}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside>
+ <div class="logo"><div class="mark">P</div><div><strong>AYDA PRIME</strong><small>Otonom Yönetici Sistemi</small></div></div>
+ <div class="menu"><a href="/">⌂ ARYA Yönetim</a><a href="/prime.html">✦ PRIME Sohbet</a><a class="active" href="/prime-mind.html">◉ Zihin Günlüğü</a></div>
+ <div class="side-note"><strong>Kendi gündemi</strong><br>Bu akışa soru yazılmaz, fikir seçilmez ve çıktı düzenlenmez. Her döngü mevcut kanıtlardan bağımsız bir gözlem ve öneri üretir.</div>
+</aside>
+<main>
+ <div class="top"><div class="crumb">AYDA / PRIME / BAĞIMSIZ ZİHİN GÜNLÜĞÜ</div><div class="state"><span class="dot"></span><span id="status">Kontrol ediliyor…</span></div></div>
+ <section class="heading"><div class="eyebrow">Bağımsız analiz akışı</div><h1>PRIME'ın Zihin Günlüğü</h1><p>Sen hiçbir şey yazmasan da kendi gündemini seçerek ürettiği gözlemler, fikirler ve öncelikler. Kayıtlar modele ait bağımsız çıktılardır; senin mesajlarından türetilmiş sohbet cevapları değildir.</p></section>
+ <section id="auth" class="auth hidden"><h2>Yönetici girişi</h2><p class="subtle">Bu günlük yalnızca AYDA yöneticilerine açık.</p><form id="loginForm"><input id="pwd" type="password" autocomplete="current-password" placeholder="ARYA yönetici parolası" required><button class="primary" type="submit">Giriş yap</button></form><div id="authError" class="error hidden"></div></section>
+ <section id="content" class="hidden">
+  <div class="metrics"><div class="metric"><span>Üretilen kayıt</span><strong id="total">—</strong><small>Orijinal model notları</small></div><div class="metric"><span>Son başarılı döngü</span><strong id="last">—</strong><small>Türkiye saati</small></div><div class="metric"><span>Çalışma durumu</span><strong id="runner">—</strong><small>Kendi kendine zamanlanan</small></div></div>
+  <div class="grid"><div><h2 class="sectionTitle">Bağımsız düşünce notları</h2><div id="feed" aria-live="polite"></div></div>
+  <section class="note"><h3>Bu sayfa neyi gösteriyor?</h3><p><strong>Gözlem:</strong> Sistemin kendi seçtiği veri işareti.</p><p><strong>Fikir:</strong> Modelin serbestçe oluşturduğu, insan tarafından değiştirilmemiş açık analiz notu.</p><p><strong>Öneri:</strong> Henüz uygulanmamış işlem veya strateji.</p><p><strong>Dayanak:</strong> Görülebilen kaynak kanıtları ve belirsizlik.</p><p>Bu alan modelin gizli iç muhakemesi veya gerçek zamanlı düşünce zinciri değildir. Zamanlanmış analizlerin <strong>kaydedilmiş sonuçlarını</strong> gösterir. WhatsApp mesajı göndermez, finansal işlem yapmaz.</p><div class="divider"></div><p class="small">Günlük otomatik yenilenir. İzlemek yeni düşünce üretimini başlatmaz.</p><p id="updated" class="subtle"></p></section></div>
+ </section>
+</main>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const when=x=>x?new Date(x).toLocaleString("tr-TR",{timeZone:"Europe/Istanbul",dateStyle:"medium",timeStyle:"short"}):"Henüz yok";
+const short=x=>typeof x==="string"?x:"";
+let loading=false;
+async function api(path,init={}){
+ const r=await fetch(path,{credentials:"same-origin",cache:"no-store",...init,headers:{"Accept":"application/json",...(init.body?{"Content-Type":"application/json"}:{}),...(init.headers||{})}});
+ const d=await r.json().catch(()=>({}));
+ if(!r.ok){const e=new Error(d.error||"bağlantı_hatası");e.status=r.status;throw e;}return d;
+}
+function paragraph(parent,value){const p=document.createElement("p");p.textContent=short(value);parent.append(p)}
+function section(parent,label,value){if(!value)return;const d=document.createElement("div");d.className="block";const b=document.createElement("b");b.textContent=label;d.append(b);paragraph(d,value);parent.append(d)}
+function drawEntry(row){
+ const card=document.createElement("article");card.className="entry";
+ const top=document.createElement("div");top.className="entryHead";
+ const left=document.createElement("div");const k=document.createElement("div");k.className="kind";k.textContent=row.focus||"Otonom içgörü";left.append(k);
+ const h=document.createElement("h3");h.textContent=row.state==="completed"?(row.title||"Yeni zihin notu"):row.state==="running"?"PRIME yeni bir analiz üretiyor":"Bu döngü tamamlanamadı";left.append(h);
+ const dt=document.createElement("div");dt.className="stamp";dt.textContent=when(row.completed_at||row.created_at)+(row.model?" · "+row.model:"");left.append(dt);top.append(left);
+ const priority=document.createElement("span");priority.className="priority";priority.textContent=row.state==="completed"?(row.priority||"değerlendirme"):row.state==="running"?"işleniyor":"başarısız";top.append(priority);card.append(top);
+ if(row.state==="completed"){
+  section(card,"NE FARK ETTİM?",row.observation);section(card,"KENDİ FİKRİM",row.idea);
+  section(card,"ÖNERDİĞİM SONRAKİ ADIM",row.recommended_action);
+  if(Array.isArray(row.evidence)&&row.evidence.length){const b=document.createElement("div");b.className="block";const label=document.createElement("b");label.textContent="DAYANAKLAR";b.append(label);const ul=document.createElement("ul");for(const e of row.evidence){const li=document.createElement("li");li.textContent=short(e);ul.append(li);}b.append(ul);card.append(b);}
+  section(card,"BELİRSİZLİK / DİKKAT",row.uncertainty);
+ }else if(row.state==="failed")section(card,"İŞLEM DURUMU","Bu döngü tamamlanmadı. Kayıt, başarılı bir analiz gibi gösterilmez.");
+ else section(card,"İŞLEM DURUMU","PRIME'ın planlı döngüsü devam ediyor; henüz analiz sonucu oluşmadı.");
+ return card;
+}
+async function refresh(){
+ if(loading)return;loading=true;
+ try{
+  const data=await api("/api/prime-mind");
+  $("auth").classList.add("hidden");$("content").classList.remove("hidden");
+  const rows=Array.isArray(data.entries)?data.entries:[];
+  const done=rows.filter(x=>x.state==="completed");
+  const running=rows.some(x=>x.state==="running" && Date.now()-new Date(x.created_at).getTime()<10*60*1000);
+  $("total").textContent=done.length.toLocaleString("tr-TR");
+  $("last").textContent=done.length?when(done[0].completed_at):"Henüz yok";
+  $("runner").textContent=running?"Analiz sürüyor":"Zamanlayıcıda";
+  $("status").textContent=running?"Döngü çalışıyor":"Otonom günlük aktif";
+  $("updated").textContent="Son kontrol: "+when(new Date().toISOString());
+  const feed=$("feed");feed.replaceChildren();
+  if(!rows.length){const d=document.createElement("div");d.className="empty";d.textContent="İlk otomatik analiz kaydı henüz oluşmadı. PRIME, zamanlanan ilk döngüde kendi gündemini belirleyip burada bir not bırakacak.";feed.append(d);}
+  else for(const row of rows)feed.append(drawEntry(row));
+ }catch(err){
+  if(err.status===401){$("auth").classList.remove("hidden");$("content").classList.add("hidden");$("status").textContent="Yönetici girişi gerekli";}
+  else {$("status").textContent="Günlük erişilemiyor";$("content").classList.remove("hidden");$("feed").textContent="Günlük bağlantısı kurulamadı: "+err.message;}
+ }finally{loading=false;}
+}
+$("loginForm").onsubmit=async e=>{e.preventDefault();$("authError").classList.add("hidden");
+ try{await api("/api/admin/login",{method:"POST",body:JSON.stringify({password:$("pwd").value})});$("pwd").value="";await refresh();}
+ catch(e){$("authError").textContent=e.status===401?"Şifre hatalı.":e.message;$("authError").classList.remove("hidden");}
+};
+refresh();setInterval(refresh,30000);
+</script>
+</body>
+</html>
