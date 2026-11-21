@@ -7,11 +7,28 @@ function equal(a,b){
 export default async function handler(req,res){
  res.setHeader("Cache-Control","no-store");
  const token=process.env.AYDA_PRIME_SMOKE_TOKEN;
- if(req.method!=="GET"||!token||!equal(req.headers["x-prime-probe-token"],token)) return res.status(404).json({error:"not_found"});
+ if(!["GET","POST"].includes(req.method)||!token||!equal(req.headers["x-prime-probe-token"],token)) return res.status(404).json({error:"not_found"});
  const key=process.env.AYDA_PRIME_OPENAI_API_KEY;
  const sid=process.env.AYDA_PRIME_SESSION_ID;
  if(!key||!sid)return res.status(503).json({error:"not_configured"});
  const hdr={Authorization:"Bearer "+key,"OpenAI-Beta":"agents=v1",Accept:"application/json"};
+
+ if(req.method==="POST"){
+  const mcp={type:"mcp",server_label:"ayda_n8n",transport:{type:"http",server_url:"https://ayda.app.n8n.cloud/mcp-server/http"},
+   connection_origin:"service",credential_id:"credential_fdb9ce6e6d0d406f9e00f39fd5ff673cd4a28662da8e4f10b8",required:false};
+  const tools=[{type:"web_search"},mcp];
+  const vaultIds=["vault_6b01d9c53c9c819188ee80f7c5ce8759"];
+  async function change(url,body){
+   const r=await fetch(url,{method:"POST",headers:{...hdr,"Content-Type":"application/json"},body:JSON.stringify(body),cache:"no-store",signal:AbortSignal.timeout(25000)});
+   const j=await r.json().catch(()=>({}));
+   return {status:r.status,tools:(Array.isArray(j?.agent?.tools)?j.agent.tools:Array.isArray(j?.tools)?j.tools:[]).map(t=>({type:t.type,server_label:t.server_label})),vault_ids:j.vault_ids||[],error:r.ok?null:(j?.error?.message||JSON.stringify(j.error||j).slice(0,750))};
+  }
+  const sessionPatch=await change("https://api.openai.com/v1/agents/sessions/"+encodeURIComponent(sid),{agent:{tools},vault_ids:vaultIds});
+  if(sessionPatch.status!==200)return res.status(200).json({sessionPatch,agentPatch:null});
+  const agentPatch=await change("https://api.openai.com/v1/agents/agent_6b01cbb2cc848191879bfefb6f76759b",{tools});
+  return res.status(200).json({sessionPatch,agentPatch});
+ }
+
  try{
   const root="https://api.openai.com/v1/agents/sessions/"+encodeURIComponent(sid);
   const [sessionResponse,itemsResponse,agentResponse]=await Promise.all([
