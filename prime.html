@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101720">
+<title>AYDA PRIME | Yönetici Sohbeti</title>
+<style>
+:root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color-scheme:dark;--bg:#0e151e;--panel:#17222e;--line:#2a3a49;--mint:#69e8c1;--text:#edf5fb;--muted:#9caebe}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(600px 400px at 90% 0%,#1b3d3f55,transparent),var(--bg);color:var(--text)}
+header{height:71px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px clamp(15px,3vw,32px);background:#111a24}
+a{color:var(--mint);text-decoration:none}button,input,textarea{font:inherit}
+h1{font-size:18px;margin:0;letter-spacing:-.3px}.brand small{color:var(--muted);display:block;font-size:12px;margin-top:3px}
+.brand{display:flex;align-items:center;gap:11px}.logo{background:linear-gradient(140deg,#89f3d2,#2d987d);color:#0d2d25;width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-weight:900}
+header .links{display:flex;gap:9px;align-items:center;font-size:13px}.softbtn{border:1px solid var(--line);background:#1b2a38;border-radius:10px;padding:9px 12px;color:#d6e7ef;cursor:pointer}
+main{max-width:970px;margin:auto;padding:16px clamp(12px,2vw,24px) 22px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;font-size:12px;color:var(--muted)}
+.status{display:flex;align-items:center;gap:7px}.dot{width:8px;height:8px;border-radius:50%;background:#f3c571;display:inline-block}.dot.ok{background:var(--mint)}.dot.fail{background:#ff7c86}
+.chat{height:calc(100dvh - 245px);min-height:330px;background:#121e2a;border:1px solid var(--line);border-radius:16px;padding:19px 17px;overflow:auto;display:flex;flex-direction:column;gap:13px;scroll-behavior:smooth}
+.msg{max-width:min(85%,740px);border-radius:17px;padding:13px 16px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.55;font-size:15px;background:#253342;border:1px solid #344657;align-self:flex-start}
+.msg.user{background:#173b32;border-color:#386e5e;align-self:flex-end}
+.msg .who{color:#a4baca;font-size:11px;font-weight:700;margin-bottom:6px}.msg.user .who{color:#9ae4c6}
+.welcome{max-width:520px;margin:auto;text-align:center;padding:30px 12px}.welcome h2{font-size:25px;margin:0 0 12px}.welcome p{color:var(--muted);line-height:1.65;font-size:14px}
+.form{display:flex;gap:8px;margin-top:13px;align-items:flex-end}.form textarea{flex:1;min-width:0;resize:none;min-height:51px;max-height:145px;padding:14px;background:#17232e;border:1px solid #344a58;border-radius:13px;color:#f2f8fc;outline:none}.form textarea:focus{border-color:var(--mint)}
+.primary{background:var(--mint);color:#0d342a;font-weight:800;border:0;border-radius:12px;padding:14px 16px;cursor:pointer}.primary:disabled{opacity:.48;cursor:not-allowed}
+.iconbtn{min-width:45px;height:50px;border:1px solid var(--line);border-radius:12px;background:#263443;color:#e2f5ed;cursor:pointer}
+.hint{color:#8a9eaf;font-size:11px;margin:9px 3px;line-height:1.5}
+.error{margin:10px 0;padding:11px 13px;background:#47252a;border:1px solid #7e4650;color:#ffd5d9;border-radius:10px;font-size:13px}
+.auth{max-width:450px;margin:10vh auto;padding:28px;background:var(--panel);border:1px solid var(--line);border-radius:18px}
+.auth p{color:var(--muted);line-height:1.6}.auth input{width:100%;padding:13px;margin:12px 0;background:#111b25;color:var(--text);border:1px solid #455361;border-radius:10px}
+.auth .primary{width:100%}.hidden{display:none!important}
+@media(max-width:550px){.chat{height:calc(100dvh - 237px);padding:12px 9px}.msg{max-width:92%;font-size:14px}.form textarea{font-size:16px}.links a{font-size:12px}h1{font-size:15px}.iconbtn{min-width:42px}.primary{padding:14px 12px}}
+</style>
+</head>
+<body>
+<header><div class="brand"><div class="logo">P</div><div><h1>AYDA PRIME</h1><small>Yapay Zekâ Genel Müdür</small></div></div><div class="links"><a href="/">← ARYA Paneli</a><button class="softbtn hidden" id="exit">Çıkış</button></div></header>
+<section id="auth" class="auth hidden"><h2>Yönetici Girişi</h2><p>PRIME'a erişmek için mevcut ARYA yönetici parolanla oturum aç.</p><form id="loginForm"><label for="password">Yönetici parolası</label><input id="password" type="password" autocomplete="current-password" required><button class="primary" type="submit">Giriş yap</button></form><div id="authError" class="error hidden"></div></section>
+<main id="main" class="hidden"><div class="top"><div class="status"><span class="dot" id="dot"></span><span id="status">Bağlanıyor…</span></div><span id="model">GPT-6 Luna</span></div><section id="chat" class="chat" role="log" aria-live="polite"></section><div id="error" class="error hidden"></div><form id="sendForm" class="form"><button class="iconbtn" type="button" id="mic" title="Sesle yaz" aria-label="Sesle yaz">🎙</button><textarea id="message" rows="1" placeholder="PRIME ile konuş… (Enter: gönder, Shift+Enter: satır)" aria-label="Mesaj" maxlength="6000"></textarea><button class="primary" type="submit" id="send">Gönder</button></form><div class="hint">Özel yönetici sohbeti · Aynı OpenAI ajan oturumunda devam eder. Mikrofona basarak sesle yazabilirsin. Canlı işlemlerde araç ve güvenlik izinleri geçerlidir.</div></main>
+<script>
+const $=id=>document.getElementById(id);
+let busy=false, refreshing=false, lastData="", timer=null, isAuthed=false;
+const api=async(url,init={})=>{
+ const res=await fetch(url,{credentials:"same-origin",cache:"no-store",...init,headers:{Accept:"application/json",...(init.body?{"Content-Type":"application/json"}:{}),...(init.headers||{})}});
+ const json=await res.json().catch(()=>({}));
+ if(!res.ok){const e=new Error(json.error||"İstek başarısız");e.status=res.status;throw e;}
+ return json;
+};
+function errorDisplay(text,target="error"){const node=$(target);node.textContent=text;node.classList.remove("hidden")}
+function clearError(){ $("error").classList.add("hidden") }
+function showAuth(){$("auth").classList.remove("hidden");$("main").classList.add("hidden");$("exit").classList.add("hidden");isAuthed=false;}
+function showMain(){$("auth").classList.add("hidden");$("main").classList.remove("hidden");$("exit").classList.remove("hidden");isAuthed=true;}
+function paintMessages(messages){
+ const mark=JSON.stringify(messages);
+ if(mark===lastData)return;
+ const chat=$("chat"), bottom=chat.scrollHeight-chat.scrollTop-chat.clientHeight<110;
+ chat.replaceChildren();
+ if(!messages.length){const hero=document.createElement("div");hero.className="welcome";const h=document.createElement("h2");h.textContent="Merhaba, ben PRIME.";const p=document.createElement("p");p.textContent="AYDA'nın eğitim, ekonomi, strateji ve operasyon konularında birlikte çalışabiliriz. Bir soru sor veya bana bir görev ver.";hero.append(h,p);chat.append(hero);}
+ for(const m of messages){const div=document.createElement("article");div.className="msg "+(m.role==="user"?"user":"assistant");const who=document.createElement("div");who.className="who";who.textContent=m.role==="user"?"SEN":"PRIME";const body=document.createElement("div");body.textContent=m.text;div.append(who,body);chat.append(div);}
+ if(bottom||!lastData)chat.scrollTop=chat.scrollHeight;
+ lastData=mark;
+}
+async function refresh(){
+ if(refreshing||!isAuthed)return;
+ refreshing=true;
+ try{
+ const data=await api("/api/prime");
+ paintMessages(data.messages||[]);
+ const running=data.status==="in_progress"||data.status==="queued";
+ $("status").textContent=data.needsAction?"İşlem onayı bekliyor":running?"PRIME düşünüyor…":data.status==="idle"?"Hazır · Canlı":data.status||"Bağlı";
+ $("dot").className="dot "+(data.status==="idle"?"ok":data.status==="failed"?"fail":"");
+ $("model").textContent=data.model||"GPT-6 Luna";
+ if(data.needsAction)errorDisplay("PRIME bir araç onayı bekliyor. İlgili işlemi OpenAI Platform'daki Sessions ekranından incele.");
+ else clearError();
+ }catch(e){
+ $("dot").className="dot fail";$("status").textContent="Bağlantı sorunu";
+ if(e.status===401){showAuth();return;}
+ errorDisplay(({prime_session_not_configured:"PRIME oturumu henüz bağlanmadı.",openai_not_configured:"OpenAI API anahtarı eksik.",openai_key_or_project_mismatch:"OpenAI anahtarı bu ajana erişemiyor. Anahtarın doğru Platform projesine ait olması gerekiyor.",openai_session_not_found:"PRIME oturumu bulunamadı."})[e.message]||"Bağlantı: "+e.message);
+ }finally{refreshing=false;}
+}
+$("loginForm").onsubmit=async(e)=>{
+ e.preventDefault();$("authError").classList.add("hidden");
+ try{await api("/api/admin/login",{method:"POST",body:JSON.stringify({password:$("password").value})});$("password").value="";showMain();await refresh();}
+ catch(err){errorDisplay(err.status===401?"Parola hatalı veya oturum açılamadı.":err.message,"authError")}
+};
+$("exit").onclick=async()=>{await api("/api/admin/logout",{method:"POST",body:"{}"}).catch(()=>{});showAuth()};
+$("sendForm").onsubmit=async(e)=>{
+ e.preventDefault();const message=$("message").value.trim();if(!message||busy)return;busy=true;$("send").disabled=true;clearError();
+ try{await api("/api/prime",{method:"POST",body:JSON.stringify({message,idempotencyKey:crypto.randomUUID()})});$("message").value="";lastData="";setTimeout(refresh,700);}
+ catch(err){errorDisplay("Mesaj gönderilemedi: "+err.message);}
+ finally{busy=false;$("send").disabled=false;}
+};
+$("message").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();$("sendForm").requestSubmit();}};
+const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+if(!SpeechRecognition){$("mic").disabled=true;$("mic").title="Bu tarayıcıda sesle yazma desteklenmiyor";}
+else{$("mic").onclick=()=>{const rec=new SpeechRecognition();rec.lang="tr-TR";rec.interimResults=false;rec.onresult=e=>{$("message").value=($("message").value+" "+e.results[0][0].transcript).trim();$("message").focus();};rec.onerror=()=>errorDisplay("Mikrofon izni veya ses tanıma hatası.");rec.start();};}
+(async()=>{try{const s=await api("/api/admin/session");if(s.authenticated){showMain();await refresh()}else showAuth();}catch{showAuth();}timer=setInterval(refresh,4000);})();
+</script>
+</body></html>
