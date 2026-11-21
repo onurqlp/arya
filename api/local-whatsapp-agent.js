@@ -86,6 +86,10 @@ export default async function handler(req, res) {
     if (body.action === "report-pull") {
       await db.query("INSERT INTO arya_web_agent_heartbeats (agent_id, last_seen, whatsapp_tab_open) VALUES ($1, NOW(), $2) " +
         "ON CONFLICT (agent_id) DO UPDATE SET last_seen = NOW(), whatsapp_tab_open = EXCLUDED.whatsapp_tab_open", [body.agent_id, body.whatsapp_tab_open]);
+      const sendSettings = (await db.query("SELECT paused, dry_run, send_enabled FROM arya_web_agent_settings WHERE id = 1"))[0];
+      if (!sendSettings || sendSettings.paused || sendSettings.dry_run || !sendSettings.send_enabled) {
+        return res.status(200).json({ job: null, target: "ARYA ONAY", reason: "sending_disabled" });
+      }
       if (!body.whatsapp_tab_open) return res.status(200).json({ job: null, target: "ARYA ONAY", reason: "whatsapp_tab_closed" });
       const result = await claimPrimeReport(db, body.agent_id);
       return res.status(200).json({ ...result, target: "ARYA ONAY", send_once: true });
