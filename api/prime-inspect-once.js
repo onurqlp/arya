@@ -30,7 +30,7 @@ export default async function handler(req,res){
     try{
       const r=await fetch("https://api.openai.com/v1/vaults/"+encodeURIComponent(v.id)+"/credentials?limit=30",{headers:hdr,signal:AbortSignal.timeout(12000),cache:"no-store"});
       const body=await r.json().catch(()=>({}));
-      return {id:v.id,name:v.name,status:v.status,http:r.status,credentials:(Array.isArray(body.data)?body.data:[]).map(c=>({id:c.id,name:c.name,auth_type:c.auth?.type,server_url:c.server_url||c.auth?.server_url||null,metadata:c.metadata||null}))};
+      return {id:v.id,name:v.name,status:v.status,http:r.status,credentials:(Array.isArray(body.data)?body.data:[]).map(c=>({id:c.id,name:c.name,auth_type:c.auth?.type,server_url:c.auth?.mcp_server_url||c.server_url||c.auth?.server_url||null,metadata:c.metadata||null}))};
     }catch{return {id:v.id,name:v.name,error:"cannot_list"}}
   }));
   const all=Array.isArray(items.data)?items.data:[];
