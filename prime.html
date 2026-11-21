@@ -56,6 +56,7 @@ main{max-width:970px;margin:auto;padding:16px clamp(12px,2vw,24px) 22px}
 <summary><strong>PRIME raporunu WhatsApp'ta hazırla</strong><span>Hedef: ARYA ONAY</span></summary>
 <p>Rapor metnini buraya aktar. Önce tam metni ve sabit hedefi görüp onaylarsın; onaylanınca yerel WhatsApp Web ajanı tek gönderim denemesi yapar.</p>
 <p>Öğrenci adı, telefon, kimlik numarası, sağlık veya ödeme bilgisi ekleme. Otomatik denetim yaygın telefon, e-posta ve 11 haneli kimlik biçimlerini engeller.</p>
+<label class="reviewCheck"><input id="reportSendingToggle" type="checkbox"> PRIME rapor gönderimi açık (yalnız ARYA ONAY; öğretmen ayarlarından bağımsız)</label>
 <textarea id="reportInput" maxlength="3000" placeholder="PRIME raporunun gönderilecek tam metni…" aria-label="Gönderilecek rapor metni"></textarea>
 <label class="reviewCheck"><input id="reportDataReviewed" type="checkbox"> Metni kişisel ve hassas öğrenci verileri açısından gözden geçirdim.</label>
 <div class="reportActions"><button class="softbtn" type="button" id="prepareReport">Önizlemeyi oluştur</button><span class="reportStatus" id="reportCharCount">0 / 3000</span></div>
@@ -73,7 +74,7 @@ main{max-width:970px;margin:auto;padding:16px clamp(12px,2vw,24px) 22px}
 <script>
 const $=id=>document.getElementById(id);
 let busy=false, refreshing=false, lastData="", timer=null, isAuthed=false, speakReplies=false, lastSpokenId="";
-let reportDraft=null, reportBusy=false, lastReportRefresh=0, reportSendingEnabled=false;
+let reportDraft=null, reportBusy=false, lastReportRefresh=0, reportSendingEnabled=false, reportToggleBusy=false;
 const api=async(url,init={})=>{
  const res=await fetch(url,{credentials:"same-origin",cache:"no-store",...init,headers:{Accept:"application/json",...(init.body?{"Content-Type":"application/json"}:{}),...(init.headers||{})}});
  const json=await res.json().catch(()=>({}));
@@ -133,11 +134,12 @@ function showReportPreview(report){
  $("reportPreviewStatus").textContent=reportStatusText(report.status);
  $("reportPreview").classList.remove("hidden");
  const editable=report.status==="draft";
+ const cancellable=["draft","approved"].includes(report.status);
  $("approveReport").classList.toggle("hidden",!editable);
  $("approveReport").disabled=editable&&!reportSendingEnabled;
- $("approveReport").title=reportSendingEnabled?"Raporu onayla":"Genel WhatsApp gönderim anahtarı kapalı";
- $("cancelReport").classList.toggle("hidden",!editable);
- if(editable&&!reportSendingEnabled)$("reportPreviewStatus").textContent=reportStatusText(report.status)+" · genel gönderim anahtarı kapalı; onay kuyruğa alınmıyor.";
+ $("approveReport").title=reportSendingEnabled?"Raporu onayla":"PRIME rapor gönderimi kapalı";
+ $("cancelReport").classList.toggle("hidden",!cancellable);
+ if(editable&&!reportSendingEnabled)$("reportPreviewStatus").textContent=reportStatusText(report.status)+" · PRIME rapor anahtarı kapalı; onay kuyruğa alınmıyor.";
 }
 function paintReportList(reports){
  const host=$("reportList");host.replaceChildren();
@@ -160,7 +162,8 @@ async function refreshReports(){
  try{
   const data=await api("/api/prime-report");
   reportSendingEnabled=data.sending_enabled===true;
-  $("reportQueueStatus").textContent=reportSendingEnabled?"Rapor kuyruğu bağlı · ARYA ONAY · gönderim anahtarı açık":"Önizleme bağlı · ARYA ONAY · genel gönderim anahtarı kapalı";
+  $("reportSendingToggle").checked=reportSendingEnabled;
+  $("reportQueueStatus").textContent=reportSendingEnabled?"PRIME rapor gönderimi açık · yalnız ARYA ONAY":"PRIME rapor gönderimi kapalı · öğretmen ayarları değişmedi";
   paintReportList(data.reports||[]);
   if(reportDraft){
    const current=(data.reports||[]).find(item=>item.id===reportDraft.id);
@@ -184,6 +187,23 @@ $("sendForm").onsubmit=async(e)=>{
  finally{busy=false;$("send").disabled=false;}
 };
 $("reportInput").oninput=()=>{$("reportCharCount").textContent=$("reportInput").value.length+" / 3000";};
+$("reportSendingToggle").onchange=async()=>{
+ if(reportToggleBusy)return;
+ const requested=$("reportSendingToggle").checked;
+ if(requested&&!window.confirm("Yalnız PRIME onaylı rapor gönderimi ARYA ONAY için açılacak. Öğretmen/ders ayarları değişmeyecek. Şimdi açayım mı?")){
+  $("reportSendingToggle").checked=false;return;
+ }
+ reportToggleBusy=true;$("reportSendingToggle").disabled=true;clearReportError();
+ try{
+  const setting=await api("/api/prime-report",{method:"POST",body:JSON.stringify({action:"set_sending_enabled",sendingEnabled:requested})});
+  reportSendingEnabled=setting.sending_enabled===true;
+  $("reportSendingToggle").checked=reportSendingEnabled;
+  await refreshReports();
+ }catch(e){
+  $("reportSendingToggle").checked=reportSendingEnabled;
+  reportError(e.message==="pending_prime_reports"?"Kuyrukta onaylı veya gönderimde rapor var; önce durumu gözden geçir.":"PRIME gönderim anahtarı değiştirilemedi: "+e.message);
+ }finally{reportToggleBusy=false;$("reportSendingToggle").disabled=false;}
+};
 $("prepareReport").onclick=async()=>{
  if(reportBusy)return;
  clearReportError();
@@ -211,7 +231,7 @@ $("approveReport").onclick=async()=>{
  finally{$("approveReport").disabled=false;reportBusy=false;}
 };
 $("cancelReport").onclick=async()=>{
- if(reportBusy||!reportDraft||reportDraft.status!=="draft")return;
+ if(reportBusy||!reportDraft||!["draft","approved"].includes(reportDraft.status))return;
  reportBusy=true;clearReportError();
  try{
   await api("/api/prime-report",{method:"POST",body:JSON.stringify({action:"cancel",id:reportDraft.id})});
