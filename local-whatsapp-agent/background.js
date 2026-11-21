@@ -124,7 +124,26 @@ async function pollOutbox() {
     for (const tab of tabs) {
       chrome.tabs.sendMessage(tab.id, { type: "ARYA_SET_SCHEDULES", schedules: result.schedules || [], checkinBaselines }).catch(() => {});
     }
-    if (!result.job) return;
+    if (!result.job) {
+      const reportTab = tabs[0];
+      if (!reportTab?.id) return;
+      const reportResponse = await signedAgentRequest(settings, { action: "report-pull", whatsapp_tab_open: true });
+      if (!reportResponse.ok) { setBadge("!", "#9c3b3b"); return; }
+      const reportResult = await reportResponse.json().catch(() => ({}));
+      if (!reportResult.job) return;
+      let reportOutcome;
+      try {
+        reportOutcome = await chrome.tabs.sendMessage(reportTab.id, { type: "ARYA_SEND_PRIME_REPORT", job: reportResult.job });
+      } catch {
+        reportOutcome = { outcome: "uncertain", error_code: "tab_response_missing" };
+      }
+      const reportAck = await signedAgentRequest(settings, { action: "report-ack", job_id: reportResult.job.id,
+        outcome: ["sent", "uncertain", "blocked"].includes(reportOutcome?.outcome) ? reportOutcome.outcome : "uncertain",
+        ...(reportOutcome?.error_code ? { error_code: reportOutcome.error_code } : {}) });
+      if (!reportAck.ok || reportOutcome?.outcome !== "sent") setBadge("!", "#9c3b3b");
+      else setBadge("", null);
+      return;
+    }
     const tab = tabs[0];
     if (!tab?.id) {
       await signedAgentRequest(settings, { action: "ack", job_id: result.job.id, outcome: "blocked", error_code: "whatsapp_tab_not_active" });
