@@ -7,7 +7,40 @@ const ROOT = "https://arya-whatsapp-panel.vercel.app";
 const BRANCH = "codex/arya-fixed-schedule-refresh-20261120";
 const TABLES = ["arya_messages","arya_outbound_messages","arya_approvals","arya_audit","arya_operations_snapshots"];
 const FILES = new Set(["README.md","package.json","vercel.json","api/health.js","api/prime.js","lib/db.js","lib/operations.js","lib/operations-scan.js","lib/whatsapp-transport.js","docs/README.md","IMPLEMENTATION_LEDGER.md"]);
+
+const AYDA_PUBLIC_REPOS = [
+ "sayfa","GENEL_SEVIYE_BELIRLEME","ONLINE-EGITIM-PLATFORMU","TELC_KAYIT",
+ "SEO","SEVIYEBELIRLEME","Telc_sonuclar","TEKRARLAR","bibliothek","A2telc",
+ "sinavgiris","telca2kelimelerr","A1hazirlik","telchazirlik","sinavhazirlik",
+ "ogretmen","derskitaplari","linkler","sinifaciklama","ayda-pass","osd_a1_ayda",
+ "osda1denemeler","osda1sprehcen","A1ayda","kurskatilim","a2ayda","b1ayda",
+ "a2telcmektup","c1prufer","b1pruf","osd","goethe-mi-osd-mi","lehrer",
+ "ders","osdyedek","ayda-hoca-panel","arya"
+];
+const PROJECT_INVENTORY = Object.freeze({
+ snapshotDate:"2026-11-21",source:"AYDA owner's connected Vercel, Neon, Supabase and GitHub account inventory",
+ vercelProjects:["arya-whatsapp-panel","ayda-platform","ayda-crm","ayda-mesaj-analizi-demo","ayda-instagram-inbox","ayda-ders-hatirlatma","ayda-lehrer-test","uzayx","club-president-demo","ayda-giris","ayda-ders"],
+ neonProjects:[{name:"arya",id:"wispy-math-91879743"},{name:"asya",id:"hidden-cake-76941696"},{name:"ayda-lehrer",id:"odd-math-50592007"}],
+ supabaseProjects:[{name:"ayda-crm",id:"zzljrvbhqyxvitmbtczz"},{name:"ayda-platform",id:"nncxpxqiubgdrzyvowtk"}],
+ github:{publicAllowedRepos:AYDA_PUBLIC_REPOS,privateNotConnected:["ayda-instagram-inbox","ayda-wordpress-sync"],excludedRepositories:["sifreler"]},
+ primeAuthorizedNow:["arya_system_status","arya_store_catalog","arya_database_summary","arya_recent_records","arya_coordination_schema","arya_repository_read","ayda_project_inventory","ayda_public_repo_browse","ayda_public_repo_read","ayda_n8n"],
+ pendingSeparateOAuth:["Gmail","Google Drive","Google Calendar","Vercel administration","Neon other projects","Supabase accounts","GitHub private repositories","Remote Desktop Commander"],
+ warning:"Metadata-only entries do NOT grant live access. The GitHub browser can only fetch approved public repositories; private repositories need independent authentication."
+});
+function repoName(v){return typeof v==="string"&&AYDA_PUBLIC_REPOS.includes(v)?v:null}
+function safeGitPath(p){return typeof p==="string"&&p.length<170&&/^[A-Za-z0-9][A-Za-z0-9_.\-/]*$/.test(p)&&p.split("/").every(part=>part!=="."&&part!==".."&&!part.startsWith(".")&&!/(?:token|password|secret|credential|sifre|apikey|api_key|private_key|service_role|client_secret|session|\.env)/i.test(part))}
+function stripSecrets(s){
+ return String(s)
+ .replace(/sk-(?:proj-)?[A-Za-z0-9_\-]{16,}/g,"[REDACTED_OPENAI_KEY]")
+ .replace(/(authorization\s*[:=]\s*['"]?Bearer\s+)[A-Za-z0-9._\-]+/ig,"$1[REDACTED]")
+ .replace(/((?:password|secret|token|api_key|apikey)\s*[:=]\s*['"])[^'"\r\n]+/ig,"$1[REDACTED]");
+}
+
 const TOOLS = [
+
+ {name:"ayda_project_inventory",description:"Read the owner-verified November 21, 2026 AYDA inventory of 11 Vercel projects, 3 Neon projects, 2 Supabase projects, public GitHub repositories, and explicitly pending OAuth connections. Other projects listed are NOT directly connected by this tool.",inputSchema:{type:"object",properties:{},additionalProperties:false},annotations:{readOnlyHint:true,destructiveHint:false}},
+ {name:"ayda_public_repo_browse",description:"Browse file and directory names in approved AYDA public GitHub repositories. Private repositories and secrets are not accessible. This is live public GitHub metadata.",inputSchema:{type:"object",properties:{repo:{type:"string",enum:AYDA_PUBLIC_REPOS},path:{type:"string",description:"Optional safe subdirectory (e.g. docs). Do not use for credentials."}},required:["repo"],additionalProperties:false},annotations:{readOnlyHint:true,destructiveHint:false}},
+ {name:"ayda_public_repo_read",description:"Read one approved public AYDA GitHub source/documentation file, limited to 12000 characters. Private or secret-related paths are forbidden.",inputSchema:{type:"object",properties:{repo:{type:"string",enum:AYDA_PUBLIC_REPOS},path:{type:"string",description:"Public file path such as README.md, src/index.js, package.json"}},required:["repo","path"],additionalProperties:false},annotations:{readOnlyHint:true,destructiveHint:false}},
  {name:"arya_system_status",description:"Read the live ARYA health endpoint. No WhatsApp send or modification.",inputSchema:{type:"object",properties:{},additionalProperties:false},annotations:{readOnlyHint:true,destructiveHint:false}},
  {name:"arya_store_catalog",description:"Read the verified AYDA project and storage catalog. Other provider projects are metadata only and require separate credentials for live access.",inputSchema:{type:"object",properties:{},additionalProperties:false},annotations:{readOnlyHint:true,destructiveHint:false}},
  {name:"arya_database_summary",description:"Read only aggregate table counts and latest record times from the ARYA Neon database. Never changes records.",inputSchema:{type:"object",properties:{},additionalProperties:false},annotations:{readOnlyHint:true,destructiveHint:false}},
@@ -22,6 +55,29 @@ function mask(value){return String(value||"").replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]
 function q(db,query){return db.query(query)}
 function database(url){if(!url)throw Error("database_not_configured");return neon(url)}
 async function dispatch(name,args){
+
+ if(name==="ayda_project_inventory")return {checkedAt:new Date().toISOString(),...PROJECT_INVENTORY};
+ if(name==="ayda_public_repo_browse"||name==="ayda_public_repo_read"){
+   const repo=repoName(args?.repo),path=args?.path||"";
+   if(!repo||path&&!safeGitPath(path))throw Error("repository_or_path_not_permitted");
+   if(name==="ayda_public_repo_read"){
+     if(!path||!/\.(md|txt|js|jsx|ts|tsx|json|html|css|py|sql|yml|yaml|toml)$/i.test(path))throw Error("file_not_permitted");
+   }
+   const base="https://api.github.com/repos/onurqlp/"+encodeURIComponent(repo)+"/contents";
+   const url=base+(path?"/"+path.split("/").map(encodeURIComponent).join("/"):"")+"?ref=main";
+   const resp=await fetch(url,{headers:{Accept:"application/vnd.github+json","User-Agent":"AYDA-PRIME-scope-readonly"},cache:"no-store",signal:AbortSignal.timeout(12000)});
+   if(!resp.ok)throw Error("github_file_unavailable");
+   const j=await resp.json();
+   if(name==="ayda_public_repo_browse"){
+     const entries=Array.isArray(j)?j:[j];
+     return {repo,path:path||"/",entries:entries.filter(v=>!v.name.startsWith(".")&&!/(?:token|password|secret|credential|sifre|apikey|api_key|private_key|service_role)/i.test(v.name)).slice(0,100).map(v=>({name:v.name,path:v.path,type:v.type,size:v.size})),truncated:entries.length>100,publicOnly:true};
+   }
+   if(j.type!=="file"||typeof j.content!=="string"||j.size>250000)throw Error("file_not_permitted");
+   const decoded=Buffer.from(j.content.replace(/\n/g,""),"base64").toString("utf8");
+   const clean=stripSecrets(decoded);
+   return {repo,path,url:j.html_url,content:clean.slice(0,12000),truncated:clean.length>12000,publicOnly:true};
+ }
+
  if(name==="arya_system_status"){
   const r=await fetch(ROOT+"/api/health",{cache:"no-store",signal:AbortSignal.timeout(10000)});
   if(!r.ok)throw Error("health_unavailable");
@@ -94,7 +150,7 @@ export default async function handler(req,res){
   const text=JSON.stringify(data);
   return send(res,id,{content:[{type:"text",text:text.slice(0,22000)}],isError:false});
  }catch(error){
-  const known=new Set(["database_not_configured","invalid_arguments","file_not_permitted","github_file_unavailable","health_unavailable"]);
+  const known=new Set(["database_not_configured","invalid_arguments","file_not_permitted","github_file_unavailable","health_unavailable","repository_or_path_not_permitted"]);
   const message=known.has(error?.message)?error.message:"read_unavailable";
   return send(res,id,{content:[{type:"text",text:JSON.stringify({error:message})}],isError:true});
  }
