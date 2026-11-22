@@ -2,8 +2,11 @@ import { getCoordinatorDb } from "../lib/coordinator-db.js";
 import { requireAdmin, sameOrigin } from "../lib/auth.js";
 import {
   approvePrimeReport,
+  approvePrimeReportBatch,
   cancelPrimeReport,
+  cancelPrimeReportBatch,
   createPrimeReportDraft,
+  createPrimeReportBatchDraft,
   getPrimeReportSendingSetting,
   listPrimeReports,
   setPrimeReportSendingSetting
@@ -42,15 +45,32 @@ export default async function handler(req, res) {
         data_reviewed: body.dataReviewed
       }));
     }
+    if (body.action === "draft_batch") {
+      return res.status(201).json(await createPrimeReportBatchDraft(db, {
+        idempotency_key: body.idempotencyKey,
+        parts: body.parts,
+        data_reviewed: body.dataReviewed
+      }));
+    }
     if (body.action === "approve") {
       if (!UUID_RE.test(body.id || "")) return fail(res, 400, "invalid_report_id");
       const settings = await getPrimeReportSendingSetting(db);
       if (!settings.sending_enabled) return fail(res, 409, "sending_disabled");
       return res.status(200).json(await approvePrimeReport(db, body.id, body.contentHash));
     }
+    if (body.action === "approve_batch") {
+      if (!UUID_RE.test(body.batchId || "")) return fail(res, 400, "invalid_report_batch");
+      const settings = await getPrimeReportSendingSetting(db);
+      if (!settings.sending_enabled) return fail(res, 409, "sending_disabled");
+      return res.status(200).json(await approvePrimeReportBatch(db, body.batchId, body.contentHashes));
+    }
     if (body.action === "cancel") {
       if (!UUID_RE.test(body.id || "")) return fail(res, 400, "invalid_report_id");
       return res.status(200).json(await cancelPrimeReport(db, body.id));
+    }
+    if (body.action === "cancel_batch") {
+      if (!UUID_RE.test(body.batchId || "")) return fail(res, 400, "invalid_report_batch");
+      return res.status(200).json(await cancelPrimeReportBatch(db, body.batchId));
     }
     return fail(res, 400, "invalid_action");
   } catch (error) {
