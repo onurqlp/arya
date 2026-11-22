@@ -54,12 +54,12 @@ main{max-width:970px;margin:auto;padding:16px clamp(12px,2vw,24px) 22px}
 <section id="auth" class="auth hidden"><h2>Yönetici Girişi</h2><p>PRIME'a erişmek için mevcut ARYA yönetici parolanla oturum aç.</p><form id="loginForm"><label for="password">Yönetici parolası</label><input id="password" type="password" autocomplete="current-password" required><button class="primary" type="submit">Giriş yap</button></form><div id="authError" class="error hidden"></div></section>
 <main id="main" class="hidden"><div class="top"><div class="status"><span class="dot" id="dot"></span><span id="status">Bağlanıyor…</span></div><div style="display:flex;align-items:center;gap:9px"><button class="softbtn" type="button" id="speakToggle" title="PRIME yanıtlarını seslendir">🔈 Ses kapalı</button><span id="model">GPT-6 Luna</span></div></div><details class="reportBridge" id="reportBridge">
 <summary><strong>PRIME raporunu WhatsApp'ta hazırla</strong><span>Hedef: ARYA ONAY</span></summary>
-<p>Rapor metnini buraya aktar. Önce tam metni ve sabit hedefi görüp onaylarsın; onaylanınca yerel WhatsApp Web ajanı tek gönderim denemesi yapar.</p>
+<p>Raporu aşağıdaki üç başlıkla hazırla ve parçaları tek başına <strong>---</strong> satırıyla ayır. Önce üç metni ve sabit hedefi görüp onaylarsın; ajan parçaları sırayla gönderir. Bir parça doğrulanamazsa kalanlar durur.</p>
 <p>Öğrenci adı, telefon, kimlik numarası, sağlık veya ödeme bilgisi ekleme. Otomatik denetim yaygın telefon, e-posta ve 11 haneli kimlik biçimlerini engeller.</p>
 <label class="reviewCheck"><input id="reportSendingToggle" type="checkbox"> PRIME rapor gönderimi açık (yalnız ARYA ONAY; öğretmen ayarlarından bağımsız)</label>
-<textarea id="reportInput" maxlength="3000" placeholder="PRIME raporunun gönderilecek tam metni…" aria-label="Gönderilecek rapor metni"></textarea>
+<textarea id="reportInput" maxlength="3600" placeholder="1/3 • GÜN ÖZETİ VE GRUPLAR&#10;…&#10;&#10;---&#10;&#10;2/3 • ÖDEME / KURS AKSİYONLARI&#10;…&#10;&#10;---&#10;&#10;3/3 • ASYA KONUŞMA TAKİPLERİ&#10;…" aria-label="Gönderilecek üç parçalı rapor metni"></textarea>
 <label class="reviewCheck"><input id="reportDataReviewed" type="checkbox"> Metni kişisel ve hassas öğrenci verileri açısından gözden geçirdim.</label>
-<div class="reportActions"><button class="softbtn" type="button" id="prepareReport">Önizlemeyi oluştur</button><span class="reportStatus" id="reportCharCount">0 / 3000</span></div>
+<div class="reportActions"><button class="softbtn" type="button" id="prepareReport">3 parçayı önizle</button><span class="reportStatus" id="reportCharCount">0 / 3600</span></div>
 <div class="error hidden" id="reportError"></div>
 <section class="reportPreview hidden" id="reportPreview">
 <div class="reportTarget" id="reportPreviewTarget">Sabit hedef: ARYA ONAY</div>
@@ -127,28 +127,44 @@ async function refresh(){
 function reportError(text){const node=$("reportError");node.textContent=text;node.classList.remove("hidden")}
 function clearReportError(){$("reportError").classList.add("hidden")}
 const reportStatusText=status=>({draft:"Önizleme hazır · onay bekliyor",approved:"Onaylandı · yerel ajan tek gönderim denemesini bekliyor",sending:"WhatsApp Web gönderim denemesinde",sent_verified:"Gönderildi · WhatsApp Web giden mesaj balonunu doğruladı",uncertain:"Belirsiz · otomatik tekrar yapılmadı",blocked:"Gönderim durduruldu · otomatik tekrar yapılmadı",cancelled:"İptal edildi"})[status]||status;
+function groupedReports(rows){
+ const groups=new Map();
+ for(const row of rows||[]){
+  const key=row.batch_id||row.id;
+  if(!groups.has(key))groups.set(key,{batch_id:row.batch_id||null,target_chat:row.target_chat,parts:[],created_at:row.created_at});
+  groups.get(key).parts.push({...row,part_index:Number(row.part_index)||1});
+ }
+ return [...groups.values()].map(group=>{
+  group.parts.sort((a,b)=>a.part_index-b.part_index);
+  if(!group.batch_id){
+   const row=group.parts[0];return {...row,parts:null,content_hashes:null};
+  }
+  const pending=group.parts.find(part=>part.status!=="sent_verified");
+  return {...group,status:pending?.status||"sent_verified",content_hashes:group.parts.map(part=>part.content_sha256)};
+ }).sort((a,b)=>Date.parse(b.created_at||0)-Date.parse(a.created_at||0));
+}
 function showReportPreview(report){
  reportDraft=report;
  $("reportPreviewTarget").textContent="Sabit hedef: "+report.target_chat;
- $("reportPreviewBody").textContent=report.body;
+ $("reportPreviewBody").textContent=report.parts?report.parts.map(part=>part.body).join("\n\n---\n\n"):report.body;
  $("reportPreviewStatus").textContent=reportStatusText(report.status);
  $("reportPreview").classList.remove("hidden");
  const editable=report.status==="draft";
  const cancellable=["draft","approved"].includes(report.status);
  $("approveReport").classList.toggle("hidden",!editable);
  $("approveReport").disabled=editable&&!reportSendingEnabled;
- $("approveReport").title=reportSendingEnabled?"Raporu onayla":"PRIME rapor gönderimi kapalı";
+ $("approveReport").title=reportSendingEnabled?"Üç parçayı sırayla onayla":"PRIME rapor gönderimi kapalı";
  $("cancelReport").classList.toggle("hidden",!cancellable);
  if(editable&&!reportSendingEnabled)$("reportPreviewStatus").textContent=reportStatusText(report.status)+" · PRIME rapor anahtarı kapalı; onay kuyruğa alınmıyor.";
 }
 function paintReportList(reports){
  const host=$("reportList");host.replaceChildren();
- for(const report of reports||[]){
+ for(const report of groupedReports(reports)){
   const item=document.createElement("article");item.className="reportItem";
   const title=document.createElement("strong");
   const when=report.created_at?new Date(report.created_at).toLocaleString("tr-TR",{timeZone:"Europe/Istanbul"}):"";
-  title.textContent=reportStatusText(report.status)+(when?" · "+when:"");
-  const body=document.createElement("pre");body.textContent=report.body||"";
+  title.textContent=(report.batch_id?"3 parçalı rapor · ":"")+reportStatusText(report.status)+(when?" · "+when:"");
+  const body=document.createElement("pre");body.textContent=report.parts?report.parts.map(part=>part.body).join("\n\n---\n\n"):report.body||"";
   item.append(title,body);
   item.onclick=()=>showReportPreview(report);
   item.tabIndex=0;item.setAttribute("role","button");
@@ -166,7 +182,8 @@ async function refreshReports(){
   $("reportQueueStatus").textContent=reportSendingEnabled?"PRIME rapor gönderimi açık · yalnız ARYA ONAY":"PRIME rapor gönderimi kapalı · öğretmen ayarları değişmedi";
   paintReportList(data.reports||[]);
   if(reportDraft){
-   const current=(data.reports||[]).find(item=>item.id===reportDraft.id);
+   const current=groupedReports(data.reports||[]).find(item=>
+     reportDraft.batch_id?item.batch_id===reportDraft.batch_id:item.id===reportDraft.id);
    if(current)showReportPreview(current);
   }
  }catch(e){
@@ -186,7 +203,7 @@ $("sendForm").onsubmit=async(e)=>{
  catch(err){errorDisplay("Mesaj gönderilemedi: "+err.message);}
  finally{busy=false;$("send").disabled=false;}
 };
-$("reportInput").oninput=()=>{$("reportCharCount").textContent=$("reportInput").value.length+" / 3000";};
+$("reportInput").oninput=()=>{$("reportCharCount").textContent=$("reportInput").value.length+" / 3600";};
 $("reportSendingToggle").onchange=async()=>{
  if(reportToggleBusy)return;
  const requested=$("reportSendingToggle").checked;
@@ -208,24 +225,29 @@ $("prepareReport").onclick=async()=>{
  if(reportBusy)return;
  clearReportError();
  const body=$("reportInput").value.trim();
- if(!body){reportError("Önizleme için rapor metni gerekli.");return;}
+ if(!body){reportError("Önizleme için üç parçalı rapor metni gerekli.");return;}
+ const parts=body.split(/\n\s*---\s*\n/u).map(value=>value.trim()).filter(Boolean);
+ if(parts.length!==3){reportError("Rapor tam üç parçadan oluşmalı; parçaları tek başına --- satırıyla ayır.");return;}
  if(!$("reportDataReviewed").checked){reportError("Önce metnin kişisel ve hassas veriler içermediğini onayla.");return;}
  reportBusy=true;$("prepareReport").disabled=true;
  try{
-  const report=await api("/api/prime-report",{method:"POST",body:JSON.stringify({action:"draft",idempotencyKey:crypto.randomUUID(),body,dataReviewed:true})});
+  const report=await api("/api/prime-report",{method:"POST",body:JSON.stringify({action:"draft_batch",idempotencyKey:crypto.randomUUID(),parts,dataReviewed:true})});
   showReportPreview(report);await refreshReports();
  }catch(e){
-  const labels={report_contains_sensitive_identifier:"Telefon, e-posta veya 11 haneli kimlik benzeri bir bilgi bulundu. Metni temizleyip yeniden hazırla.",invalid_report_body:"Rapor boş olamaz ve 3000 karakteri geçemez.",coordinator_store_not_configured:"Koordinatör veritabanı bağlantısı kurulu değil.",report_draft_storage_unavailable:"Taslak kaydedilemedi."};
+  const labels={report_contains_sensitive_identifier:"Telefon, e-posta veya 11 haneli kimlik benzeri bir bilgi bulundu. Metni temizleyip yeniden hazırla.",invalid_report_body:"Her parça boş olmamalı ve 1200 karakteri geçmemeli.",invalid_report_batch:"Rapor tam üç parçadan oluşmalı.",invalid_report_part_heading:"Başlıklar sırasıyla 1/3, 2/3 ve 3/3 ile başlamalı.",coordinator_store_not_configured:"Koordinatör veritabanı bağlantısı kurulu değil.",report_draft_storage_unavailable:"Taslak kaydedilemedi."};
   reportError(labels[e.message]||"Taslak oluşturulamadı: "+e.message);
  }finally{reportBusy=false;$("prepareReport").disabled=false;}
 };
 $("approveReport").onclick=async()=>{
  if(reportBusy||!reportDraft||reportDraft.status!=="draft")return;
- if(!reportSendingEnabled){reportError("Genel WhatsApp gönderim anahtarı kapalı. Öğretmen gönderimlerini etkilememek için açmadım.");return;}
+ if(!reportSendingEnabled){reportError("PRIME rapor gönderim anahtarı kapalı. Öğretmen gönderimlerini etkilemeden kapalı bıraktım.");return;}
  reportBusy=true;$("approveReport").disabled=true;clearReportError();
  try{
-  const approved=await api("/api/prime-report",{method:"POST",body:JSON.stringify({action:"approve",id:reportDraft.id,contentHash:reportDraft.content_sha256})});
-  showReportPreview(approved);$("reportPreviewStatus").textContent=reportStatusText(approved.status)+" · rapor metni değiştirilemez.";
+  const payload=reportDraft.batch_id?
+    {action:"approve_batch",batchId:reportDraft.batch_id,contentHashes:reportDraft.content_hashes}:
+    {action:"approve",id:reportDraft.id,contentHash:reportDraft.content_sha256};
+  const approved=await api("/api/prime-report",{method:"POST",body:JSON.stringify(payload)});
+  showReportPreview(approved);$("reportPreviewStatus").textContent=reportStatusText(approved.status)+" · üç parça değiştirilemez ve sırayla gönderilir.";
   await refreshReports();
  }catch(e){reportError(e.message==="sending_disabled"?"Gönderim anahtarı kapalı; taslak onaylanmadı.":"Onay kaydedilemedi: "+e.message)}
  finally{$("approveReport").disabled=false;reportBusy=false;}
@@ -234,7 +256,8 @@ $("cancelReport").onclick=async()=>{
  if(reportBusy||!reportDraft||!["draft","approved"].includes(reportDraft.status))return;
  reportBusy=true;clearReportError();
  try{
-  await api("/api/prime-report",{method:"POST",body:JSON.stringify({action:"cancel",id:reportDraft.id})});
+  const payload=reportDraft.batch_id?{action:"cancel_batch",batchId:reportDraft.batch_id}:{action:"cancel",id:reportDraft.id};
+  await api("/api/prime-report",{method:"POST",body:JSON.stringify(payload)});
   reportDraft=null;$("reportPreview").classList.add("hidden");await refreshReports();
  }catch(e){reportError("Taslak iptal edilemedi: "+e.message)}
  finally{reportBusy=false;}
